@@ -14,6 +14,7 @@ import { Route as HistoricoRouteImport } from './routes/historico'
 import { Route as PerfilRouteImport } from './routes/perfil'
 import { Route as PlanosRouteImport } from './routes/planos'
 import { Route as RelatoriosRouteImport } from './routes/relatorios'
+import { Route as SuporteRouteImport } from './routes/suporte'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -40,6 +41,11 @@ const RelatoriosRoute = RelatoriosRouteImport.update({
   path: '/relatorios',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SuporteRoute = SuporteRouteImport.update({
+  id: '/suporte',
+  path: '/suporte',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   '/perfil': typeof PerfilRoute
   '/planos': typeof PlanosRoute
   '/relatorios': typeof RelatoriosRoute
+  '/suporte': typeof SuporteRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   '/perfil': typeof PerfilRoute
   '/planos': typeof PlanosRoute
   '/relatorios': typeof RelatoriosRoute
+  '/suporte': typeof SuporteRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,13 +70,22 @@ export interface FileRoutesById {
   '/perfil': typeof PerfilRoute
   '/planos': typeof PlanosRoute
   '/relatorios': typeof RelatoriosRoute
+  '/suporte': typeof SuporteRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/historico' | '/perfil' | '/planos' | '/relatorios'
+  fullPaths:
+    '/' | '/historico' | '/perfil' | '/planos' | '/relatorios' | '/suporte'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/historico' | '/perfil' | '/planos' | '/relatorios'
-  id: '__root__' | '/' | '/historico' | '/perfil' | '/planos' | '/relatorios'
+  to: '/' | '/historico' | '/perfil' | '/planos' | '/relatorios' | '/suporte'
+  id:
+    | '__root__'
+    | '/'
+    | '/historico'
+    | '/perfil'
+    | '/planos'
+    | '/relatorios'
+    | '/suporte'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -77,6 +94,7 @@ export interface RootRouteChildren {
   PerfilRoute: typeof PerfilRoute
   PlanosRoute: typeof PlanosRoute
   RelatoriosRoute: typeof RelatoriosRoute
+  SuporteRoute: typeof SuporteRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -116,6 +134,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RelatoriosRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/suporte': {
+      id: '/suporte'
+      path: '/suporte'
+      fullPath: '/suporte'
+      preLoaderRoute: typeof SuporteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -125,6 +150,7 @@ const rootRouteChildren: RootRouteChildren = {
   PerfilRoute: PerfilRoute,
   PlanosRoute: PlanosRoute,
   RelatoriosRoute: RelatoriosRoute,
+  SuporteRoute: SuporteRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
