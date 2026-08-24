@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as HistoricoRouteImport } from './routes/historico'
+import { Route as PerfilRouteImport } from './routes/perfil'
 import { Route as PlanosRouteImport } from './routes/planos'
 import { Route as RelatoriosRouteImport } from './routes/relatorios'
 
@@ -22,6 +23,11 @@ const IndexRoute = IndexRouteImport.update({
 const HistoricoRoute = HistoricoRouteImport.update({
   id: '/historico',
   path: '/historico',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PerfilRoute = PerfilRouteImport.update({
+  id: '/perfil',
+  path: '/perfil',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PlanosRoute = PlanosRouteImport.update({
@@ -38,12 +44,14 @@ const RelatoriosRoute = RelatoriosRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/historico': typeof HistoricoRoute
+  '/perfil': typeof PerfilRoute
   '/planos': typeof PlanosRoute
   '/relatorios': typeof RelatoriosRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/historico': typeof HistoricoRoute
+  '/perfil': typeof PerfilRoute
   '/planos': typeof PlanosRoute
   '/relatorios': typeof RelatoriosRoute
 }
@@ -51,20 +59,22 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/historico': typeof HistoricoRoute
+  '/perfil': typeof PerfilRoute
   '/planos': typeof PlanosRoute
   '/relatorios': typeof RelatoriosRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/historico' | '/planos' | '/relatorios'
+  fullPaths: '/' | '/historico' | '/perfil' | '/planos' | '/relatorios'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/historico' | '/planos' | '/relatorios'
-  id: '__root__' | '/' | '/historico' | '/planos' | '/relatorios'
+  to: '/' | '/historico' | '/perfil' | '/planos' | '/relatorios'
+  id: '__root__' | '/' | '/historico' | '/perfil' | '/planos' | '/relatorios'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   HistoricoRoute: typeof HistoricoRoute
+  PerfilRoute: typeof PerfilRoute
   PlanosRoute: typeof PlanosRoute
   RelatoriosRoute: typeof RelatoriosRoute
 }
@@ -83,6 +93,13 @@ declare module '@tanstack/react-router' {
       path: '/historico'
       fullPath: '/historico'
       preLoaderRoute: typeof HistoricoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/perfil': {
+      id: '/perfil'
+      path: '/perfil'
+      fullPath: '/perfil'
+      preLoaderRoute: typeof PerfilRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/planos': {
@@ -105,6 +122,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   HistoricoRoute: HistoricoRoute,
+  PerfilRoute: PerfilRoute,
   PlanosRoute: PlanosRoute,
   RelatoriosRoute: RelatoriosRoute,
 }
