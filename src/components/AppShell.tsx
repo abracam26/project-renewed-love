@@ -14,6 +14,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
+import logoAsset from "@/assets/abracam-logo.png.asset.json";
 import { currentUser } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
@@ -39,8 +40,15 @@ export function AppShell({ children }: { children: ReactNode }) {
           open ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="px-5 py-5">
-          <span className="font-display text-lg font-bold tracking-tight text-primary">Simulador ABT</span>
+        <div className="flex items-center gap-3 px-5 py-5">
+          <img
+            src={logoAsset.url}
+            alt="Logo ABRACAM"
+            className="size-10 shrink-0 rounded-md bg-white object-contain p-1"
+          />
+          <span className="font-display text-base font-bold leading-tight tracking-tight text-sidebar-foreground">
+            Simulador <span className="text-primary">ABT</span>
+          </span>
         </div>
 
         <nav className="flex-1 space-y-1 px-3">
