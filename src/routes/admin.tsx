@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Database, Settings, Users, Zap } from "lucide-react";
+import { TrainingUploader } from "@/components/TrainingUploader";
 import { adminStats, adminUsuarios } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/admin")({
