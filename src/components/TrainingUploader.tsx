@@ -26,6 +26,23 @@ export function TrainingUploader() {
   const [dragging, setDragging] = useState(false);
   const [categoria, setCategoria] = useState(categorias[0]!);
   const [materiais, setMateriais] = useState<Material[]>([]);
+  const [testando, setTestando] = useState(false);
+  const testarIA = useServerFn(testarConexaoGemini);
+
+  async function testarChave() {
+    setTestando(true);
+    try {
+      const r = await testarIA();
+      if (r.ok) toast.success(r.mensagem);
+      else toast.error(r.mensagem);
+    } catch {
+      toast.error("Não foi possível testar a conexão com o Gemini.");
+    } finally {
+      setTestando(false);
+    }
+  }
+
+
 
   function addFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
