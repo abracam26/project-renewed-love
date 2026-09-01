@@ -1,6 +1,9 @@
 import { useRef, useState } from "react";
-import { FileText, Trash2, UploadCloud } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { FileText, Sparkles, Trash2, UploadCloud } from "lucide-react";
 import { toast } from "sonner";
+import { testarConexaoGemini } from "@/lib/ia.functions";
+
 
 type Material = {
   id: string;
