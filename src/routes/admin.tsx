@@ -83,6 +83,8 @@ function Admin() {
           </table>
         </div>
       </section>
+
+      <TrainingUploader />
     </div>
   );
 }
