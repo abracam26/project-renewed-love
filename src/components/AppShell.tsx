@@ -34,6 +34,22 @@ const nav: { to: string; label: string; icon: LucideIcon }[] = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { user } = useSupabaseSession();
+
+  const displayName =
+    (user?.user_metadata?.["username"] as string | undefined) ??
+    user?.email?.split("@")[0] ??
+    currentUser.username;
+
+  async function handleSignOut() {
+    await queryClient.cancelQueries();
+    queryClient.clear();
+    await supabase.auth.signOut();
+    navigate({ to: "/auth", replace: true });
+  }
+
 
   return (
     <div className="flex min-h-screen bg-background">
