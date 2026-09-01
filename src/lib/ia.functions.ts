@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 
-const GEMINI_MODEL = "gemini-2.5-flash";
+const GEMINI_MODEL = "gemini-3.6-flash";
 
 export const testarConexaoGemini = createServerFn({ method: "POST" }).handler(async () => {
   const apiKey = process.env["GEMINI_API_KEY"];
