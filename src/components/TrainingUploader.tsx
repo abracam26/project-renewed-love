@@ -1,6 +1,9 @@
 import { useRef, useState } from "react";
-import { FileText, Trash2, UploadCloud } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { FileText, Sparkles, Trash2, UploadCloud } from "lucide-react";
 import { toast } from "sonner";
+import { testarConexaoGemini } from "@/lib/ia.functions";
+
 
 type Material = {
   id: string;
@@ -23,6 +26,23 @@ export function TrainingUploader() {
   const [dragging, setDragging] = useState(false);
   const [categoria, setCategoria] = useState(categorias[0]!);
   const [materiais, setMateriais] = useState<Material[]>([]);
+  const [testando, setTestando] = useState(false);
+  const testarIA = useServerFn(testarConexaoGemini);
+
+  async function testarChave() {
+    setTestando(true);
+    try {
+      const r = await testarIA();
+      if (r.ok) toast.success(r.mensagem);
+      else toast.error(r.mensagem);
+    } catch {
+      toast.error("Não foi possível testar a conexão com o Gemini.");
+    } finally {
+      setTestando(false);
+    }
+  }
+
+
 
   function addFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
@@ -134,13 +154,27 @@ export function TrainingUploader() {
         )}
       </div>
 
-      <button
-        disabled={materiais.length === 0}
-        onClick={() => toast.info("Treinamento ainda não configurado — envie as regras e a chave de API.")}
-        className="mt-5 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-opacity disabled:opacity-50"
-      >
-        Enviar para treinamento
-      </button>
+      <div className="mt-5 flex flex-wrap items-center gap-3">
+        <button
+          disabled={materiais.length === 0}
+          onClick={() => toast.info("Treinamento ainda não configurado — envie as regras de geração das questões.")}
+          className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-opacity disabled:opacity-50"
+        >
+          Enviar para treinamento
+        </button>
+        <button
+          onClick={testarChave}
+          disabled={testando}
+          className="inline-flex items-center gap-2 rounded-md border border-input bg-card px-4 py-2 text-sm font-medium text-card-foreground transition-colors hover:bg-accent disabled:opacity-50"
+        >
+          <Sparkles className="size-4 text-primary" />
+          {testando ? "Testando..." : "Testar chave do Gemini"}
+        </button>
+      </div>
+      <p className="mt-2 text-xs text-muted-foreground">
+        Chave GEMINI_API_KEY conectada com segurança no servidor — nunca exposta no navegador.
+      </p>
+
     </section>
   );
 }
