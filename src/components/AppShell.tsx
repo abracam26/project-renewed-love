@@ -1,4 +1,5 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   BarChart3,
   Bell,
@@ -15,6 +16,8 @@ import {
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import logoAsset from "@/assets/abracam-logo.png.asset.json";
+import { useSupabaseSession } from "@/hooks/use-session";
+import { supabase } from "@/integrations/supabase/client";
 import { currentUser } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +34,22 @@ const nav: { to: string; label: string; icon: LucideIcon }[] = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { user } = useSupabaseSession();
+
+  const displayName =
+    (user?.user_metadata?.["username"] as string | undefined) ??
+    user?.email?.split("@")[0] ??
+    currentUser.username;
+
+  async function handleSignOut() {
+    await queryClient.cancelQueries();
+    queryClient.clear();
+    await supabase.auth.signOut();
+    navigate({ to: "/auth", replace: true });
+  }
+
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -71,7 +90,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="border-t border-sidebar-border p-3">
-          <button className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-destructive transition-colors hover:bg-sidebar-accent">
+          <button onClick={handleSignOut} className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-destructive transition-colors hover:bg-sidebar-accent">
             <LogOut className="size-4" />
             Sair
           </button>
@@ -107,8 +126,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <User className="size-4" />
               </span>
               <span className="hidden leading-tight sm:block">
-                <span className="block text-sm font-medium text-sidebar-foreground">{currentUser.username}</span>
-                <span className="block text-xs text-muted-foreground">Online</span>
+                <span className="block text-sm font-medium text-sidebar-foreground">{displayName}</span>
+                <span className="block text-xs text-muted-foreground">{user ? "Online" : "Visitante"}</span>
               </span>
             </div>
           </div>
