@@ -90,7 +90,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="border-t border-sidebar-border p-3">
-          <button className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-destructive transition-colors hover:bg-sidebar-accent">
+          <button onClick={handleSignOut} className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-destructive transition-colors hover:bg-sidebar-accent">
             <LogOut className="size-4" />
             Sair
           </button>
@@ -126,8 +126,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <User className="size-4" />
               </span>
               <span className="hidden leading-tight sm:block">
-                <span className="block text-sm font-medium text-sidebar-foreground">{currentUser.username}</span>
-                <span className="block text-xs text-muted-foreground">Online</span>
+                <span className="block text-sm font-medium text-sidebar-foreground">{displayName}</span>
+                <span className="block text-xs text-muted-foreground">{user ? "Online" : "Visitante"}</span>
               </span>
             </div>
           </div>
