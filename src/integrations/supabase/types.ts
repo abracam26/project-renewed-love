@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      importacoes: {
+        Row: {
+          arquivo: string
+          created_at: string
+          erros: Json
+          formato: string
+          id: string
+          total_atualizadas: number
+          total_erros: number
+          total_inseridas: number
+          total_lidas: number
+          user_id: string | null
+        }
+        Insert: {
+          arquivo: string
+          created_at?: string
+          erros?: Json
+          formato: string
+          id?: string
+          total_atualizadas?: number
+          total_erros?: number
+          total_inseridas?: number
+          total_lidas?: number
+          user_id?: string | null
+        }
+        Update: {
+          arquivo?: string
+          created_at?: string
+          erros?: Json
+          formato?: string
+          id?: string
+          total_atualizadas?: number
+          total_erros?: number
+          total_inseridas?: number
+          total_lidas?: number
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -44,15 +83,119 @@ export type Database = {
         }
         Relationships: []
       }
+      questoes: {
+        Row: {
+          alternativas: Json
+          ativa: boolean
+          created_at: string
+          dificuldade: string
+          enunciado: string
+          explicacao: string | null
+          fonte_artigo: string | null
+          fonte_norma: string | null
+          fonte_pagina: number | null
+          gabarito: string
+          id: string
+          importacao_id: string | null
+          nivel: string
+          origem: string
+          status: string
+          subtema: string | null
+          tags: string[]
+          tema: number
+          tema_nome: string
+          updated_at: string
+          versao_material: string
+        }
+        Insert: {
+          alternativas: Json
+          ativa?: boolean
+          created_at?: string
+          dificuldade: string
+          enunciado: string
+          explicacao?: string | null
+          fonte_artigo?: string | null
+          fonte_norma?: string | null
+          fonte_pagina?: number | null
+          gabarito: string
+          id: string
+          importacao_id?: string | null
+          nivel: string
+          origem?: string
+          status?: string
+          subtema?: string | null
+          tags?: string[]
+          tema: number
+          tema_nome: string
+          updated_at?: string
+          versao_material?: string
+        }
+        Update: {
+          alternativas?: Json
+          ativa?: boolean
+          created_at?: string
+          dificuldade?: string
+          enunciado?: string
+          explicacao?: string | null
+          fonte_artigo?: string | null
+          fonte_norma?: string | null
+          fonte_pagina?: number | null
+          gabarito?: string
+          id?: string
+          importacao_id?: string | null
+          nivel?: string
+          origem?: string
+          status?: string
+          subtema?: string | null
+          tags?: string[]
+          tema?: number
+          tema_nome?: string
+          updated_at?: string
+          versao_material?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      contar_questoes_por_tema: {
+        Args: Record<PropertyKey, never>
+        Returns: { tema: number; total: number; ativas: number }[]
+      }
+      gerar_simulado: {
+        Args: { p_nivel?: string; p_total?: number }
+        Returns: Database["public"]["Tables"]["questoes"]["Row"][]
+      }
+      has_role: {
+        Args: { _user_id: string; _role: Database["public"]["Enums"]["app_role"] }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -179,6 +322,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+    },
   },
 } as const
