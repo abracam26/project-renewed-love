@@ -18,6 +18,7 @@ import { Route as PerfilRouteImport } from './routes/perfil'
 import { Route as PlanosRouteImport } from './routes/planos'
 import { Route as RelatoriosRouteImport } from './routes/relatorios'
 import { Route as SuporteRouteImport } from './routes/suporte'
+import { Route as AdminGerarRouteImport } from './routes/admin_.gerar'
 import { Route as AdminQuestoesRouteImport } from './routes/admin_.questoes'
 
 const IndexRoute = IndexRouteImport.update({
@@ -65,6 +66,11 @@ const SuporteRoute = SuporteRouteImport.update({
   path: '/suporte',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminGerarRoute = AdminGerarRouteImport.update({
+  id: '/admin_/gerar',
+  path: '/admin/gerar',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminQuestoesRoute = AdminQuestoesRouteImport.update({
   id: '/admin_/questoes',
   path: '/admin/questoes',
@@ -81,6 +87,7 @@ export interface FileRoutesByFullPath {
   '/planos': typeof PlanosRoute
   '/relatorios': typeof RelatoriosRoute
   '/suporte': typeof SuporteRoute
+  '/admin/gerar': typeof AdminGerarRoute
   '/admin/questoes': typeof AdminQuestoesRoute
 }
 export interface FileRoutesByTo {
@@ -93,6 +100,7 @@ export interface FileRoutesByTo {
   '/planos': typeof PlanosRoute
   '/relatorios': typeof RelatoriosRoute
   '/suporte': typeof SuporteRoute
+  '/admin/gerar': typeof AdminGerarRoute
   '/admin/questoes': typeof AdminQuestoesRoute
 }
 export interface FileRoutesById {
@@ -106,6 +114,7 @@ export interface FileRoutesById {
   '/planos': typeof PlanosRoute
   '/relatorios': typeof RelatoriosRoute
   '/suporte': typeof SuporteRoute
+  '/admin_/gerar': typeof AdminGerarRoute
   '/admin_/questoes': typeof AdminQuestoesRoute
 }
 export interface FileRouteTypes {
@@ -120,6 +129,7 @@ export interface FileRouteTypes {
     | '/planos'
     | '/relatorios'
     | '/suporte'
+    | '/admin/gerar'
     | '/admin/questoes'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -132,6 +142,7 @@ export interface FileRouteTypes {
     | '/planos'
     | '/relatorios'
     | '/suporte'
+    | '/admin/gerar'
     | '/admin/questoes'
   id:
     | '__root__'
@@ -144,6 +155,7 @@ export interface FileRouteTypes {
     | '/planos'
     | '/relatorios'
     | '/suporte'
+    | '/admin_/gerar'
     | '/admin_/questoes'
   fileRoutesById: FileRoutesById
 }
@@ -157,6 +169,7 @@ export interface RootRouteChildren {
   PlanosRoute: typeof PlanosRoute
   RelatoriosRoute: typeof RelatoriosRoute
   SuporteRoute: typeof SuporteRoute
+  AdminGerarRoute: typeof AdminGerarRoute
   AdminQuestoesRoute: typeof AdminQuestoesRoute
 }
 
@@ -225,6 +238,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SuporteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin_/gerar': {
+      id: '/admin_/gerar'
+      path: '/admin/gerar'
+      fullPath: '/admin/gerar'
+      preLoaderRoute: typeof AdminGerarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin_/questoes': {
       id: '/admin_/questoes'
       path: '/admin/questoes'
@@ -245,6 +265,7 @@ const rootRouteChildren: RootRouteChildren = {
   PlanosRoute: PlanosRoute,
   RelatoriosRoute: RelatoriosRoute,
   SuporteRoute: SuporteRoute,
+  AdminGerarRoute: AdminGerarRoute,
   AdminQuestoesRoute: AdminQuestoesRoute,
 }
 export const routeTree = rootRouteImport

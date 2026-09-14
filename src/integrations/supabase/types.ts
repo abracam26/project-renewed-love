@@ -14,6 +14,81 @@ export type Database = {
   }
   public: {
     Tables: {
+      configuracoes: {
+        Row: {
+          chave: string
+          updated_at: string
+          updated_by: string | null
+          valor: string
+        }
+        Insert: {
+          chave: string
+          updated_at?: string
+          updated_by?: string | null
+          valor: string
+        }
+        Update: {
+          chave?: string
+          updated_at?: string
+          updated_by?: string | null
+          valor?: string
+        }
+        Relationships: []
+      }
+      geracoes_ia: {
+        Row: {
+          created_at: string
+          descartadas: number
+          dificuldade: string | null
+          duracao_ms: number | null
+          erros: Json
+          geradas: number
+          id: string
+          instrucao_extra: string | null
+          modelo: string
+          nivel: string
+          quantidade: number
+          tema: number
+          tokens_entrada: number | null
+          tokens_saida: number | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          descartadas?: number
+          dificuldade?: string | null
+          duracao_ms?: number | null
+          erros?: Json
+          geradas?: number
+          id?: string
+          instrucao_extra?: string | null
+          modelo: string
+          nivel: string
+          quantidade: number
+          tema: number
+          tokens_entrada?: number | null
+          tokens_saida?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          descartadas?: number
+          dificuldade?: string | null
+          duracao_ms?: number | null
+          erros?: Json
+          geradas?: number
+          id?: string
+          instrucao_extra?: string | null
+          modelo?: string
+          nivel?: string
+          quantidade?: number
+          tema?: number
+          tokens_entrada?: number | null
+          tokens_saida?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       importacoes: {
         Row: {
           arquivo: string
@@ -50,6 +125,39 @@ export type Database = {
           total_inseridas?: number
           total_lidas?: number
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      material_trechos: {
+        Row: {
+          conteudo: string
+          created_at: string
+          id: string
+          ordem: number
+          tema: number
+          titulo: string
+          updated_at: string
+          versao: string
+        }
+        Insert: {
+          conteudo: string
+          created_at?: string
+          id?: string
+          ordem?: number
+          tema: number
+          titulo: string
+          updated_at?: string
+          versao?: string
+        }
+        Update: {
+          conteudo?: string
+          created_at?: string
+          id?: string
+          ordem?: number
+          tema?: number
+          titulo?: string
+          updated_at?: string
+          versao?: string
         }
         Relationships: []
       }
@@ -95,6 +203,7 @@ export type Database = {
           fonte_norma: string | null
           fonte_pagina: number | null
           gabarito: string
+          geracao_id: string | null
           id: string
           importacao_id: string | null
           nivel: string
@@ -118,6 +227,7 @@ export type Database = {
           fonte_norma?: string | null
           fonte_pagina?: number | null
           gabarito: string
+          geracao_id?: string | null
           id: string
           importacao_id?: string | null
           nivel: string
@@ -141,6 +251,7 @@ export type Database = {
           fonte_norma?: string | null
           fonte_pagina?: number | null
           gabarito?: string
+          geracao_id?: string | null
           id?: string
           importacao_id?: string | null
           nivel?: string

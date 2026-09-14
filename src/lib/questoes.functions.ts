@@ -148,18 +148,26 @@ export const resumoQuestoes = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await exigirAdmin(data.token);
 
-    const [{ data: porTema, error: e1 }, { data: importacoes, error: e2 }, { count: usuarios }] =
-      await Promise.all([
-        supabaseAdmin.rpc("contar_questoes_por_tema"),
-        supabaseAdmin
-          .from("importacoes")
-          .select(
-            "id, arquivo, formato, total_lidas, total_inseridas, total_atualizadas, total_erros, created_at",
-          )
-          .order("created_at", { ascending: false })
-          .limit(10),
-        supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }),
-      ]);
+    const [
+      { data: porTema, error: e1 },
+      { data: importacoes, error: e2 },
+      { count: usuarios },
+      { count: pendentes },
+    ] = await Promise.all([
+      supabaseAdmin.rpc("contar_questoes_por_tema"),
+      supabaseAdmin
+        .from("importacoes")
+        .select(
+          "id, arquivo, formato, total_lidas, total_inseridas, total_atualizadas, total_erros, created_at",
+        )
+        .order("created_at", { ascending: false })
+        .limit(10),
+      supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }),
+      supabaseAdmin
+        .from("questoes")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "rascunho"),
+    ]);
     if (e1) throw new Error(e1.message);
     if (e2) throw new Error(e2.message);
 
@@ -173,6 +181,7 @@ export const resumoQuestoes = createServerFn({ method: "POST" })
       total: temas.reduce((s, t) => s + t.total, 0),
       ativas: temas.reduce((s, t) => s + t.ativas, 0),
       usuarios: usuarios ?? 0,
+      pendentes: pendentes ?? 0,
       importacoes: importacoes ?? [],
     };
   });

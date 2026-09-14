@@ -1,9 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Database, FileUp, Loader2, Settings, Users } from "lucide-react";
+import { ClipboardList, Database, FileUp, Loader2, Settings, Users, Wand2 } from "lucide-react";
 import { AdminGate } from "@/components/AdminGate";
-import { TrainingUploader } from "@/components/TrainingUploader";
 import { PROPORCAO_PROVA, TEMAS } from "@/lib/questoes-schema";
 import { resumoQuestoes } from "@/lib/questoes.functions";
 
@@ -56,9 +55,9 @@ function PainelAdmin({ token }: { token: string }) {
           rotulo="Questões ativas nos simulados"
         />
         <Card
-          icone={FileUp}
-          valor={d ? String(d.importacoes.length) : null}
-          rotulo="Importações recentes"
+          icone={ClipboardList}
+          valor={d ? String(d.pendentes) : null}
+          rotulo="Aguardando revisão"
         />
       </div>
 
@@ -70,13 +69,22 @@ function PainelAdmin({ token }: { token: string }) {
               Questões ativas por tema e quantas cada simulado de 40 questões sorteia.
             </p>
           </div>
-          <Link
-            to="/admin/questoes"
-            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-gold hover:bg-primary/90"
-          >
-            <FileUp className="size-4" />
-            Importar e gerenciar questões
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              to="/admin/gerar"
+              className="inline-flex items-center gap-2 rounded-md border border-primary/60 px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/10"
+            >
+              <Wand2 className="size-4" />
+              Gerar com IA e revisar
+            </Link>
+            <Link
+              to="/admin/questoes"
+              className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-gold hover:bg-primary/90"
+            >
+              <FileUp className="size-4" />
+              Importar e gerenciar questões
+            </Link>
+          </div>
         </div>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -152,8 +160,6 @@ function PainelAdmin({ token }: { token: string }) {
           </div>
         )}
       </section>
-
-      <TrainingUploader />
     </div>
   );
 }
