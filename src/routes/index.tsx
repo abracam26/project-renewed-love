@@ -43,7 +43,7 @@ function Dashboard() {
     <div className="space-y-6">
       <section className="gold-banner rounded-lg px-6 py-5">
         <h1 className="text-xl font-bold">Olá, {currentUser.username}! 👋</h1>
-        <p className="mt-1 text-sm opacity-90">Teste simultâneo — conta B. Continue se preparando para seu exame!</p>
+        <p className="mt-1 text-sm opacity-90">Alteração feita no Lovable. Continue se preparando para seu exame!</p>
       </section>
 
       <div className="flex justify-center">
