@@ -1,7 +1,16 @@
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { CheckCircle2, ChevronLeft, Clock, Loader2, Target, Trophy, XCircle } from "lucide-react";
+import {
+  BookOpen,
+  CheckCircle2,
+  ChevronLeft,
+  Clock,
+  Loader2,
+  Target,
+  Trophy,
+  XCircle,
+} from "lucide-react";
 import { useToken } from "@/hooks/use-token";
 import { resultadoSimulado } from "@/lib/simulado.functions";
 import { cn } from "@/lib/utils";
@@ -181,12 +190,42 @@ function Resultado() {
                     })}
                   </ul>
 
+                  {/* Referência ao material: aparece sempre nas questões erradas
+                      para o aluno saber onde estudar, independentemente do flag
+                      de mostrar_explicacao. */}
+                  {q.correta === false && (q.fonte_norma || q.fonte_artigo || q.fonte_pagina) && (
+                    <div className="mt-3 flex items-start gap-2 rounded-md border border-info/30 bg-info/10 p-3 text-xs leading-relaxed text-card-foreground">
+                      <BookOpen className="mt-0.5 size-4 shrink-0 text-info" />
+                      <div>
+                        <p className="font-semibold">Onde estudar</p>
+                        <p className="mt-0.5">
+                          {[
+                            q.fonte_norma,
+                            q.fonte_artigo,
+                            q.fonte_pagina ? `página ${q.fonte_pagina} do Material de Apoio` : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   {q.explicacao && (
                     <div className="mt-3 rounded-md bg-background/60 p-3 text-xs leading-relaxed text-card-foreground">
                       <p className="mb-1 font-semibold">Explicação</p>
                       {q.explicacao}
-                      {q.fonte && (
-                        <p className="mt-2 text-[11px] text-muted-foreground">Fonte: {q.fonte}</p>
+                      {(q.fonte_norma || q.fonte_artigo || q.fonte_pagina) && (
+                        <p className="mt-2 text-[11px] text-muted-foreground">
+                          Fonte:{" "}
+                          {[
+                            q.fonte_norma,
+                            q.fonte_artigo,
+                            q.fonte_pagina ? `página ${q.fonte_pagina} do material` : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </p>
                       )}
                     </div>
                   )}

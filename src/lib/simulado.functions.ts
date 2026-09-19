@@ -405,7 +405,7 @@ export const resultadoSimulado = createServerFn({ method: "POST" })
     const { data: rows, error } = await supabaseAdmin
       .from("simulado_questoes")
       .select(
-        "id, ordem, ordem_letras, resposta, correta, tempo_ms, questoes(id, tema, tema_nome, enunciado, alternativas, gabarito, explicacao, fonte_norma, fonte_artigo)",
+        "id, ordem, ordem_letras, resposta, correta, tempo_ms, questoes(id, tema, tema_nome, enunciado, alternativas, gabarito, explicacao, fonte_norma, fonte_artigo, fonte_pagina)",
       )
       .eq("simulado_id", data.simuladoId)
       .order("ordem")
@@ -434,8 +434,14 @@ export const resultadoSimulado = createServerFn({ method: "POST" })
         respostaLetra: r.resposta as Letra | null,
         correta: r.correta,
         tempo_ms: r.tempo_ms,
+        // A explicação completa continua condicionada ao flag mostrar_explicacao
+        // (ligado por tipo de prova, no /admin/configuracoes).
         explicacao: mostrarExplicacao ? q.explicacao : null,
-        fonte: [q.fonte_norma, q.fonte_artigo].filter(Boolean).join(" · ") || null,
+        // A referência ao material vai SEMPRE (mesmo com a explicação desligada),
+        // para o aluno saber onde estudar quando errar uma questão.
+        fonte_norma: q.fonte_norma,
+        fonte_artigo: q.fonte_artigo,
+        fonte_pagina: q.fonte_pagina,
       };
     });
 
