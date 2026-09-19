@@ -1,7 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ClipboardList, Database, FileUp, Loader2, Settings, Users, Wand2 } from "lucide-react";
+import {
+  ClipboardList,
+  Database,
+  FileUp,
+  Loader2,
+  Settings,
+  Settings2,
+  Users,
+  Wand2,
+} from "lucide-react";
 import { AdminGate } from "@/components/AdminGate";
 import { PROPORCAO_PROVA, TEMAS } from "@/lib/questoes-schema";
 import { resumoQuestoes } from "@/lib/questoes.functions";
@@ -70,6 +79,13 @@ function PainelAdmin({ token }: { token: string }) {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Link
+              to="/admin/configuracoes"
+              className="inline-flex items-center gap-2 rounded-md border border-input bg-card px-4 py-2 text-sm font-semibold text-card-foreground hover:bg-accent"
+            >
+              <Settings2 className="size-4 text-primary" />
+              Configurações dos simulados
+            </Link>
             <Link
               to="/admin/gerar"
               className="inline-flex items-center gap-2 rounded-md border border-primary/60 px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/10"

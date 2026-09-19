@@ -18,6 +18,7 @@ import { Route as PerfilRouteImport } from './routes/perfil'
 import { Route as PlanosRouteImport } from './routes/planos'
 import { Route as RelatoriosRouteImport } from './routes/relatorios'
 import { Route as SuporteRouteImport } from './routes/suporte'
+import { Route as AdminConfiguracoesRouteImport } from './routes/admin_.configuracoes'
 import { Route as AdminGerarRouteImport } from './routes/admin_.gerar'
 import { Route as AdminQuestoesRouteImport } from './routes/admin_.questoes'
 import { Route as ProvaIdRouteImport } from './routes/prova.$id'
@@ -68,6 +69,11 @@ const SuporteRoute = SuporteRouteImport.update({
   path: '/suporte',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminConfiguracoesRoute = AdminConfiguracoesRouteImport.update({
+  id: '/admin_/configuracoes',
+  path: '/admin/configuracoes',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminGerarRoute = AdminGerarRouteImport.update({
   id: '/admin_/gerar',
   path: '/admin/gerar',
@@ -99,6 +105,7 @@ export interface FileRoutesByFullPath {
   '/planos': typeof PlanosRoute
   '/relatorios': typeof RelatoriosRoute
   '/suporte': typeof SuporteRoute
+  '/admin/configuracoes': typeof AdminConfiguracoesRoute
   '/admin/gerar': typeof AdminGerarRoute
   '/admin/questoes': typeof AdminQuestoesRoute
   '/prova/$id': typeof ProvaIdRoute
@@ -114,6 +121,7 @@ export interface FileRoutesByTo {
   '/planos': typeof PlanosRoute
   '/relatorios': typeof RelatoriosRoute
   '/suporte': typeof SuporteRoute
+  '/admin/configuracoes': typeof AdminConfiguracoesRoute
   '/admin/gerar': typeof AdminGerarRoute
   '/admin/questoes': typeof AdminQuestoesRoute
   '/prova/$id': typeof ProvaIdRoute
@@ -130,6 +138,7 @@ export interface FileRoutesById {
   '/planos': typeof PlanosRoute
   '/relatorios': typeof RelatoriosRoute
   '/suporte': typeof SuporteRoute
+  '/admin_/configuracoes': typeof AdminConfiguracoesRoute
   '/admin_/gerar': typeof AdminGerarRoute
   '/admin_/questoes': typeof AdminQuestoesRoute
   '/prova/$id': typeof ProvaIdRoute
@@ -147,6 +156,7 @@ export interface FileRouteTypes {
     | '/planos'
     | '/relatorios'
     | '/suporte'
+    | '/admin/configuracoes'
     | '/admin/gerar'
     | '/admin/questoes'
     | '/prova/$id'
@@ -162,6 +172,7 @@ export interface FileRouteTypes {
     | '/planos'
     | '/relatorios'
     | '/suporte'
+    | '/admin/configuracoes'
     | '/admin/gerar'
     | '/admin/questoes'
     | '/prova/$id'
@@ -177,6 +188,7 @@ export interface FileRouteTypes {
     | '/planos'
     | '/relatorios'
     | '/suporte'
+    | '/admin_/configuracoes'
     | '/admin_/gerar'
     | '/admin_/questoes'
     | '/prova/$id'
@@ -193,6 +205,7 @@ export interface RootRouteChildren {
   PlanosRoute: typeof PlanosRoute
   RelatoriosRoute: typeof RelatoriosRoute
   SuporteRoute: typeof SuporteRoute
+  AdminConfiguracoesRoute: typeof AdminConfiguracoesRoute
   AdminGerarRoute: typeof AdminGerarRoute
   AdminQuestoesRoute: typeof AdminQuestoesRoute
   ProvaIdRoute: typeof ProvaIdRoute
@@ -264,6 +277,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SuporteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin_/configuracoes': {
+      id: '/admin_/configuracoes'
+      path: '/admin/configuracoes'
+      fullPath: '/admin/configuracoes'
+      preLoaderRoute: typeof AdminConfiguracoesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin_/gerar': {
       id: '/admin_/gerar'
       path: '/admin/gerar'
@@ -305,6 +325,7 @@ const rootRouteChildren: RootRouteChildren = {
   PlanosRoute: PlanosRoute,
   RelatoriosRoute: RelatoriosRoute,
   SuporteRoute: SuporteRoute,
+  AdminConfiguracoesRoute: AdminConfiguracoesRoute,
   AdminGerarRoute: AdminGerarRoute,
   AdminQuestoesRoute: AdminQuestoesRoute,
   ProvaIdRoute: ProvaIdRoute,

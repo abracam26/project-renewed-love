@@ -1,7 +1,17 @@
 import { useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ChevronLeft, ChevronRight, Eye, Loader2, Power, Search, Trash2 } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  Loader2,
+  Pencil,
+  Power,
+  Search,
+  Trash2,
+} from "lucide-react";
+import { EditorQuestao } from "@/components/EditorQuestao";
 import { toast } from "sonner";
 import { atualizarQuestao, excluirQuestoes, listarQuestoes } from "@/lib/questoes.functions";
 import {
@@ -45,6 +55,7 @@ export function GestorQuestoes({ token }: { token: string }) {
   const [pagina, setPagina] = useState(1);
   const [detalhe, setDetalhe] = useState<QuestaoRow | null>(null);
   const [excluindo, setExcluindo] = useState<QuestaoRow | null>(null);
+  const [editando, setEditando] = useState<QuestaoRow | null>(null);
 
   const listar = useServerFn(listarQuestoes);
   const atualizar = useServerFn(atualizarQuestao);
@@ -259,6 +270,14 @@ export function GestorQuestoes({ token }: { token: string }) {
                     </button>
                     <button
                       type="button"
+                      onClick={() => setEditando(q)}
+                      aria-label={`Editar ${q.id}`}
+                      className="rounded-md p-1.5 text-primary hover:bg-accent"
+                    >
+                      <Pencil className="size-4" />
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => mutAtiva.mutate(q)}
                       disabled={mutAtiva.isPending}
                       aria-label={q.ativa ? `Desativar ${q.id}` : `Ativar ${q.id}`}
@@ -378,6 +397,14 @@ export function GestorQuestoes({ token }: { token: string }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <EditorQuestao
+        token={token}
+        questao={editando}
+        aberto={editando !== null}
+        onFechar={() => setEditando(null)}
+        onSalvo={() => void invalidar()}
+      />
     </section>
   );
 }
