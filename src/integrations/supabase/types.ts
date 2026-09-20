@@ -1,597 +1,479 @@
-export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
 
 export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5";
-  };
+    PostgrestVersion: "14.5"
+  }
   public: {
     Tables: {
       configuracoes: {
         Row: {
-          chave: string;
-          updated_at: string;
-          updated_by: string | null;
-          valor: string;
-        };
+          chave: string
+          updated_at: string
+          updated_by: string | null
+          valor: string
+        }
         Insert: {
-          chave: string;
-          updated_at?: string;
-          updated_by?: string | null;
-          valor: string;
-        };
+          chave: string
+          updated_at?: string
+          updated_by?: string | null
+          valor: string
+        }
         Update: {
-          chave?: string;
-          updated_at?: string;
-          updated_by?: string | null;
-          valor?: string;
-        };
-        Relationships: [];
-      };
+          chave?: string
+          updated_at?: string
+          updated_by?: string | null
+          valor?: string
+        }
+        Relationships: []
+      }
       geracoes_ia: {
         Row: {
-          created_at: string;
-          descartadas: number;
-          dificuldade: string | null;
-          duracao_ms: number | null;
-          erros: Json;
-          geradas: number;
-          id: string;
-          instrucao_extra: string | null;
-          modelo: string;
-          nivel: string;
-          quantidade: number;
-          tema: number;
-          tokens_entrada: number | null;
-          tokens_saida: number | null;
-          user_id: string | null;
-        };
+          created_at: string
+          descartadas: number
+          dificuldade: string | null
+          duracao_ms: number | null
+          erros: Json
+          geradas: number
+          id: string
+          instrucao_extra: string | null
+          modelo: string
+          nivel: string
+          quantidade: number
+          tema: number
+          tokens_entrada: number | null
+          tokens_saida: number | null
+          user_id: string | null
+        }
         Insert: {
-          created_at?: string;
-          descartadas?: number;
-          dificuldade?: string | null;
-          duracao_ms?: number | null;
-          erros?: Json;
-          geradas?: number;
-          id?: string;
-          instrucao_extra?: string | null;
-          modelo: string;
-          nivel: string;
-          quantidade: number;
-          tema: number;
-          tokens_entrada?: number | null;
-          tokens_saida?: number | null;
-          user_id?: string | null;
-        };
+          created_at?: string
+          descartadas?: number
+          dificuldade?: string | null
+          duracao_ms?: number | null
+          erros?: Json
+          geradas?: number
+          id?: string
+          instrucao_extra?: string | null
+          modelo: string
+          nivel: string
+          quantidade: number
+          tema: number
+          tokens_entrada?: number | null
+          tokens_saida?: number | null
+          user_id?: string | null
+        }
         Update: {
-          created_at?: string;
-          descartadas?: number;
-          dificuldade?: string | null;
-          duracao_ms?: number | null;
-          erros?: Json;
-          geradas?: number;
-          id?: string;
-          instrucao_extra?: string | null;
-          modelo?: string;
-          nivel?: string;
-          quantidade?: number;
-          tema?: number;
-          tokens_entrada?: number | null;
-          tokens_saida?: number | null;
-          user_id?: string | null;
-        };
-        Relationships: [];
-      };
-      configuracoes_prova: {
-        Row: {
-          mostrar_explicacao: boolean;
-          nota_corte: number;
-          pct_dificil: number;
-          pct_facil: number;
-          pct_media: number;
-          pct_tema_1: number;
-          pct_tema_2: number;
-          pct_tema_3: number;
-          pct_tema_4: number;
-          tempo_maximo_min: number;
-          tipo: string;
-          total_questoes: number;
-          updated_at: string;
-          updated_by: string | null;
-        };
-        Insert: {
-          mostrar_explicacao?: boolean;
-          nota_corte: number;
-          pct_dificil: number;
-          pct_facil: number;
-          pct_media: number;
-          pct_tema_1: number;
-          pct_tema_2: number;
-          pct_tema_3: number;
-          pct_tema_4: number;
-          tempo_maximo_min: number;
-          tipo: string;
-          total_questoes: number;
-          updated_at?: string;
-          updated_by?: string | null;
-        };
-        Update: {
-          mostrar_explicacao?: boolean;
-          nota_corte?: number;
-          pct_dificil?: number;
-          pct_facil?: number;
-          pct_media?: number;
-          pct_tema_1?: number;
-          pct_tema_2?: number;
-          pct_tema_3?: number;
-          pct_tema_4?: number;
-          tempo_maximo_min?: number;
-          tipo?: string;
-          total_questoes?: number;
-          updated_at?: string;
-          updated_by?: string | null;
-        };
-        Relationships: [];
-      };
-      gratuidade_usada: {
-        Row: { cpf_hash: string; usada_em: string };
-        Insert: { cpf_hash: string; usada_em?: string };
-        Update: { cpf_hash?: string; usada_em?: string };
-        Relationships: [];
-      };
+          created_at?: string
+          descartadas?: number
+          dificuldade?: string | null
+          duracao_ms?: number | null
+          erros?: Json
+          geradas?: number
+          id?: string
+          instrucao_extra?: string | null
+          modelo?: string
+          nivel?: string
+          quantidade?: number
+          tema?: number
+          tokens_entrada?: number | null
+          tokens_saida?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       importacoes: {
         Row: {
-          arquivo: string;
-          created_at: string;
-          erros: Json;
-          formato: string;
-          id: string;
-          total_atualizadas: number;
-          total_erros: number;
-          total_inseridas: number;
-          total_lidas: number;
-          user_id: string | null;
-        };
+          arquivo: string
+          created_at: string
+          erros: Json
+          formato: string
+          id: string
+          total_atualizadas: number
+          total_erros: number
+          total_inseridas: number
+          total_lidas: number
+          user_id: string | null
+        }
         Insert: {
-          arquivo: string;
-          created_at?: string;
-          erros?: Json;
-          formato: string;
-          id?: string;
-          total_atualizadas?: number;
-          total_erros?: number;
-          total_inseridas?: number;
-          total_lidas?: number;
-          user_id?: string | null;
-        };
+          arquivo: string
+          created_at?: string
+          erros?: Json
+          formato: string
+          id?: string
+          total_atualizadas?: number
+          total_erros?: number
+          total_inseridas?: number
+          total_lidas?: number
+          user_id?: string | null
+        }
         Update: {
-          arquivo?: string;
-          created_at?: string;
-          erros?: Json;
-          formato?: string;
-          id?: string;
-          total_atualizadas?: number;
-          total_erros?: number;
-          total_inseridas?: number;
-          total_lidas?: number;
-          user_id?: string | null;
-        };
-        Relationships: [];
-      };
+          arquivo?: string
+          created_at?: string
+          erros?: Json
+          formato?: string
+          id?: string
+          total_atualizadas?: number
+          total_erros?: number
+          total_inseridas?: number
+          total_lidas?: number
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       material_trechos: {
         Row: {
-          conteudo: string;
-          created_at: string;
-          id: string;
-          ordem: number;
-          tema: number;
-          titulo: string;
-          updated_at: string;
-          versao: string;
-        };
+          conteudo: string
+          created_at: string
+          id: string
+          ordem: number
+          tema: number
+          titulo: string
+          updated_at: string
+          versao: string
+        }
         Insert: {
-          conteudo: string;
-          created_at?: string;
-          id?: string;
-          ordem?: number;
-          tema: number;
-          titulo: string;
-          updated_at?: string;
-          versao?: string;
-        };
+          conteudo: string
+          created_at?: string
+          id?: string
+          ordem?: number
+          tema: number
+          titulo: string
+          updated_at?: string
+          versao?: string
+        }
         Update: {
-          conteudo?: string;
-          created_at?: string;
-          id?: string;
-          ordem?: number;
-          tema?: number;
-          titulo?: string;
-          updated_at?: string;
-          versao?: string;
-        };
-        Relationships: [];
-      };
+          conteudo?: string
+          created_at?: string
+          id?: string
+          ordem?: number
+          tema?: number
+          titulo?: string
+          updated_at?: string
+          versao?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
-          avatar_url: string | null;
-          cpf_hash: string | null;
-          created_at: string;
-          full_name: string | null;
-          id: string;
-          plano: string;
-          plano_validade: string | null;
-          show_in_ranking: boolean;
-          updated_at: string;
-          username: string | null;
-        };
+          avatar_url: string | null
+          created_at: string
+          full_name: string | null
+          id: string
+          show_in_ranking: boolean
+          updated_at: string
+          username: string | null
+        }
         Insert: {
-          avatar_url?: string | null;
-          cpf_hash?: string | null;
-          created_at?: string;
-          full_name?: string | null;
-          id: string;
-          plano?: string;
-          plano_validade?: string | null;
-          show_in_ranking?: boolean;
-          updated_at?: string;
-          username?: string | null;
-        };
+          avatar_url?: string | null
+          created_at?: string
+          full_name?: string | null
+          id: string
+          show_in_ranking?: boolean
+          updated_at?: string
+          username?: string | null
+        }
         Update: {
-          avatar_url?: string | null;
-          cpf_hash?: string | null;
-          created_at?: string;
-          full_name?: string | null;
-          id?: string;
-          plano?: string;
-          plano_validade?: string | null;
-          show_in_ranking?: boolean;
-          updated_at?: string;
-          username?: string | null;
-        };
-        Relationships: [];
-      };
+          avatar_url?: string | null
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          show_in_ranking?: boolean
+          updated_at?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
       questoes: {
         Row: {
-          alternativas: Json;
-          ativa: boolean;
-          created_at: string;
-          dificuldade: string;
-          enunciado: string;
-          explicacao: string | null;
-          fonte_artigo: string | null;
-          fonte_norma: string | null;
-          fonte_pagina: number | null;
-          gabarito: string;
-          geracao_id: string | null;
-          id: string;
-          importacao_id: string | null;
-          nivel: string;
-          origem: string;
-          status: string;
-          subtema: string | null;
-          tags: string[];
-          tema: number;
-          tema_nome: string;
-          updated_at: string;
-          versao_material: string;
-        };
+          alternativas: Json
+          ativa: boolean
+          created_at: string
+          dificuldade: string
+          enunciado: string
+          explicacao: string | null
+          fonte_artigo: string | null
+          fonte_norma: string | null
+          fonte_pagina: number | null
+          gabarito: string
+          geracao_id: string | null
+          id: string
+          importacao_id: string | null
+          nivel: string
+          origem: string
+          status: string
+          subtema: string | null
+          tags: string[]
+          tema: number
+          tema_nome: string
+          updated_at: string
+          versao_material: string
+        }
         Insert: {
-          alternativas: Json;
-          ativa?: boolean;
-          created_at?: string;
-          dificuldade: string;
-          enunciado: string;
-          explicacao?: string | null;
-          fonte_artigo?: string | null;
-          fonte_norma?: string | null;
-          fonte_pagina?: number | null;
-          gabarito: string;
-          geracao_id?: string | null;
-          id: string;
-          importacao_id?: string | null;
-          nivel: string;
-          origem?: string;
-          status?: string;
-          subtema?: string | null;
-          tags?: string[];
-          tema: number;
-          tema_nome: string;
-          updated_at?: string;
-          versao_material?: string;
-        };
+          alternativas: Json
+          ativa?: boolean
+          created_at?: string
+          dificuldade: string
+          enunciado: string
+          explicacao?: string | null
+          fonte_artigo?: string | null
+          fonte_norma?: string | null
+          fonte_pagina?: number | null
+          gabarito: string
+          geracao_id?: string | null
+          id: string
+          importacao_id?: string | null
+          nivel: string
+          origem?: string
+          status?: string
+          subtema?: string | null
+          tags?: string[]
+          tema: number
+          tema_nome: string
+          updated_at?: string
+          versao_material?: string
+        }
         Update: {
-          alternativas?: Json;
-          ativa?: boolean;
-          created_at?: string;
-          dificuldade?: string;
-          enunciado?: string;
-          explicacao?: string | null;
-          fonte_artigo?: string | null;
-          fonte_norma?: string | null;
-          fonte_pagina?: number | null;
-          gabarito?: string;
-          geracao_id?: string | null;
-          id?: string;
-          importacao_id?: string | null;
-          nivel?: string;
-          origem?: string;
-          status?: string;
-          subtema?: string | null;
-          tags?: string[];
-          tema?: number;
-          tema_nome?: string;
-          updated_at?: string;
-          versao_material?: string;
-        };
+          alternativas?: Json
+          ativa?: boolean
+          created_at?: string
+          dificuldade?: string
+          enunciado?: string
+          explicacao?: string | null
+          fonte_artigo?: string | null
+          fonte_norma?: string | null
+          fonte_pagina?: number | null
+          gabarito?: string
+          geracao_id?: string | null
+          id?: string
+          importacao_id?: string | null
+          nivel?: string
+          origem?: string
+          status?: string
+          subtema?: string | null
+          tags?: string[]
+          tema?: number
+          tema_nome?: string
+          updated_at?: string
+          versao_material?: string
+        }
         Relationships: [
           {
-            foreignKeyName: "questoes_geracao_id_fkey";
-            columns: ["geracao_id"];
-            isOneToOne: false;
-            referencedRelation: "geracoes_ia";
-            referencedColumns: ["id"];
+            foreignKeyName: "questoes_geracao_id_fkey"
+            columns: ["geracao_id"]
+            isOneToOne: false
+            referencedRelation: "geracoes_ia"
+            referencedColumns: ["id"]
           },
-        ];
-      };
-      simulados: {
-        Row: {
-          acertos: number | null;
-          aprovado: boolean | null;
-          duracao_segundos: number | null;
-          finalizado_em: string | null;
-          id: string;
-          iniciado_em: string;
-          nota_corte: number;
-          status: string;
-          tempo_maximo_min: number;
-          tipo: string;
-          total_questoes: number;
-          user_id: string;
-        };
-        Insert: {
-          acertos?: number | null;
-          aprovado?: boolean | null;
-          duracao_segundos?: number | null;
-          finalizado_em?: string | null;
-          id?: string;
-          iniciado_em?: string;
-          nota_corte: number;
-          status?: string;
-          tempo_maximo_min: number;
-          tipo: string;
-          total_questoes: number;
-          user_id: string;
-        };
-        Update: {
-          acertos?: number | null;
-          aprovado?: boolean | null;
-          duracao_segundos?: number | null;
-          finalizado_em?: string | null;
-          id?: string;
-          iniciado_em?: string;
-          nota_corte?: number;
-          status?: string;
-          tempo_maximo_min?: number;
-          tipo?: string;
-          total_questoes?: number;
-          user_id?: string;
-        };
-        Relationships: [];
-      };
-      simulado_questoes: {
-        Row: {
-          correta: boolean | null;
-          id: string;
-          ordem: number;
-          ordem_letras: string;
-          questao_id: string;
-          respondida_em: string | null;
-          resposta: string | null;
-          simulado_id: string;
-          tempo_ms: number | null;
-        };
-        Insert: {
-          correta?: boolean | null;
-          id?: string;
-          ordem: number;
-          ordem_letras: string;
-          questao_id: string;
-          respondida_em?: string | null;
-          resposta?: string | null;
-          simulado_id: string;
-          tempo_ms?: number | null;
-        };
-        Update: {
-          correta?: boolean | null;
-          id?: string;
-          ordem?: number;
-          ordem_letras?: string;
-          questao_id?: string;
-          respondida_em?: string | null;
-          resposta?: string | null;
-          simulado_id?: string;
-          tempo_ms?: number | null;
-        };
-        Relationships: [];
-      };
+        ]
+      }
       user_roles: {
         Row: {
-          created_at: string;
-          id: string;
-          role: Database["public"]["Enums"]["app_role"];
-          user_id: string;
-        };
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
         Insert: {
-          created_at?: string;
-          id?: string;
-          role: Database["public"]["Enums"]["app_role"];
-          user_id: string;
-        };
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
         Update: {
-          created_at?: string;
-          id?: string;
-          role?: Database["public"]["Enums"]["app_role"];
-          user_id?: string;
-        };
-        Relationships: [];
-      };
-    };
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+    }
     Views: {
-      [_ in never]: never;
-    };
+      [_ in never]: never
+    }
     Functions: {
       contar_questoes_por_tema: {
-        Args: never;
+        Args: never
         Returns: {
-          ativas: number;
-          tema: number;
-          total: number;
-        }[];
-      };
-      estatisticas_aluno: {
-        Args: { p_user_id: string };
+          ativas: number
+          tema: number
+          total: number
+        }[]
+      }
+      gerar_simulado: {
+        Args: { p_nivel?: string; p_total?: number }
         Returns: {
-          total_simulados: number;
-          simulados_completos: number;
-          aprovados: number;
-          melhor_pct: number;
-          media_pct: number;
-          total_questoes: number;
-          tempo_total_seg: number;
-        }[];
-      };
-      sortear_questoes_simulado: {
-        Args: { p_user_id: string; p_tipo: string };
-        Returns: { questao_id: string; ordem: number; tema: number }[];
-      };
+          alternativas: Json
+          ativa: boolean
+          created_at: string
+          dificuldade: string
+          enunciado: string
+          explicacao: string | null
+          fonte_artigo: string | null
+          fonte_norma: string | null
+          fonte_pagina: number | null
+          gabarito: string
+          geracao_id: string | null
+          id: string
+          importacao_id: string | null
+          nivel: string
+          origem: string
+          status: string
+          subtema: string | null
+          tags: string[]
+          tema: number
+          tema_nome: string
+          updated_at: string
+          versao_material: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "questoes"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       has_role: {
         Args: {
-          _role: Database["public"]["Enums"]["app_role"];
-          _user_id: string;
-        };
-        Returns: boolean;
-      };
-    };
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+    }
     Enums: {
-      app_role: "admin" | "user";
-    };
+      app_role: "admin" | "user"
+    }
     CompositeTypes: {
-      [_ in never]: never;
-    };
-  };
-};
+      [_ in never]: never
+    }
+  }
+}
 
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">;
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">];
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends (DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
+    schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
+  schema: keyof DatabaseWithoutInternals
 }
   ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
       DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
-      Row: infer R;
+      Row: infer R
     }
     ? R
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] & DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-        Row: infer R;
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
       }
       ? R
       : never
-    : never;
+    : never
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends (DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
+    schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
+  schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Insert: infer I;
+      Insert: infer I
     }
     ? I
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
     ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Insert: infer I;
+        Insert: infer I
       }
       ? I
       : never
-    : never;
+    : never
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends (DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
+    schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
+  schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Update: infer U;
+      Update: infer U
     }
     ? U
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
     ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Update: infer U;
+        Update: infer U
       }
       ? U
       : never
-    : never;
+    : never
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    keyof DefaultSchema["Enums"] | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
   EnumName extends (DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
+    schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
+  schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-    : never;
+    : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    keyof DefaultSchema["CompositeTypes"] | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
+    schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
     : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
+  schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never;
+    : never
 
 export const Constants = {
   public: {
@@ -599,4 +481,4 @@ export const Constants = {
       app_role: ["admin", "user"],
     },
   },
-} as const;
+} as const
