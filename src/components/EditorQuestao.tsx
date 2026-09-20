@@ -83,12 +83,15 @@ export function EditorQuestao({
 }: Props) {
   const editar = useServerFn(editarQuestao);
   const [edicao, setEdicao] = useState<EdicaoQuestao | null>(null);
+  const [idAtual, setIdAtual] = useState<string | null>(null);
 
   // Sincroniza estado interno quando a questão muda
   const questaoId = questao?.id ?? null;
-  if (edicao?.id !== questaoId) {
+  if (idAtual !== questaoId) {
+    setIdAtual(questaoId);
     setEdicao(questao ? paraEdicao(questao) : null);
   }
+
 
   const mut = useMutation({
     mutationFn: (args: { e: EdicaoQuestao; aprovar: boolean }) =>
