@@ -8,24 +8,34 @@ export const testarConexaoGemini = createServerFn({ method: "POST" }).handler(as
     return { ok: false as const, mensagem: "GEMINI_API_KEY não configurada no projeto." };
   }
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: "Responda apenas: OK" }] }],
-      }),
-    },
-  );
+  // O 503 do Gemini é transitório (modelo sobrecarregado): tenta até 3 vezes com espera crescente.
+  let res: Response | null = null;
+  for (let tentativa = 0; tentativa < 3; tentativa++) {
+    res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: "Responda apenas: OK" }] }],
+        }),
+      },
+    );
+    if (res.status !== 503) break;
+    if (tentativa < 2) await new Promise((r) => setTimeout(r, 1500 * (tentativa + 1)));
+  }
 
-  if (!res.ok) {
-    const detalhe = await res.text();
-    console.error(`[Gemini] falha ${res.status}: ${detalhe}`);
-    return {
-      ok: false as const,
-      mensagem: `Gemini respondeu ${res.status}. Verifique se a chave é válida e tem acesso ao modelo ${GEMINI_MODEL}.`,
-    };
+  if (!res || !res.ok) {
+    const status = res?.status ?? 0;
+    const detalhe = res ? await res.text() : "sem resposta";
+    console.error(`[Gemini] falha ${status}: ${detalhe}`);
+    const mensagem =
+      status === 503
+        ? `O Gemini (${GEMINI_MODEL}) está temporariamente sobrecarregado. Aguarde alguns minutos e teste de novo.`
+        : status === 401 || status === 403
+          ? `Gemini recusou a chave (${status}). Verifique se ela é válida e tem acesso ao modelo ${GEMINI_MODEL}.`
+          : `Gemini respondeu ${status}. Verifique a chave e o modelo ${GEMINI_MODEL}.`;
+    return { ok: false as const, mensagem };
   }
 
   const data = (await res.json()) as {
