@@ -35,6 +35,57 @@ export type Database = {
         }
         Relationships: []
       }
+      configuracoes_prova: {
+        Row: {
+          mostrar_explicacao: boolean
+          nota_corte: number
+          pct_dificil: number
+          pct_facil: number
+          pct_media: number
+          pct_tema_1: number
+          pct_tema_2: number
+          pct_tema_3: number
+          pct_tema_4: number
+          tempo_maximo_min: number
+          tipo: string
+          total_questoes: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          mostrar_explicacao?: boolean
+          nota_corte: number
+          pct_dificil: number
+          pct_facil: number
+          pct_media: number
+          pct_tema_1: number
+          pct_tema_2: number
+          pct_tema_3: number
+          pct_tema_4: number
+          tempo_maximo_min: number
+          tipo: string
+          total_questoes: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          mostrar_explicacao?: boolean
+          nota_corte?: number
+          pct_dificil?: number
+          pct_facil?: number
+          pct_media?: number
+          pct_tema_1?: number
+          pct_tema_2?: number
+          pct_tema_3?: number
+          pct_tema_4?: number
+          tempo_maximo_min?: number
+          tipo?: string
+          total_questoes?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       geracoes_ia: {
         Row: {
           created_at: string
@@ -86,6 +137,21 @@ export type Database = {
           tokens_entrada?: number | null
           tokens_saida?: number | null
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      gratuidade_usada: {
+        Row: {
+          cpf_hash: string
+          usada_em: string
+        }
+        Insert: {
+          cpf_hash: string
+          usada_em?: string
+        }
+        Update: {
+          cpf_hash?: string
+          usada_em?: string
         }
         Relationships: []
       }
@@ -164,27 +230,36 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          cpf_hash: string | null
           created_at: string
           full_name: string | null
           id: string
+          plano: string
+          plano_validade: string | null
           show_in_ranking: boolean
           updated_at: string
           username: string | null
         }
         Insert: {
           avatar_url?: string | null
+          cpf_hash?: string | null
           created_at?: string
           full_name?: string | null
           id: string
+          plano?: string
+          plano_validade?: string | null
           show_in_ranking?: boolean
           updated_at?: string
           username?: string | null
         }
         Update: {
           avatar_url?: string | null
+          cpf_hash?: string | null
           created_at?: string
           full_name?: string | null
           id?: string
+          plano?: string
+          plano_validade?: string | null
           show_in_ranking?: boolean
           updated_at?: string
           username?: string | null
@@ -274,6 +349,110 @@ export type Database = {
           },
         ]
       }
+      simulado_questoes: {
+        Row: {
+          correta: boolean | null
+          id: string
+          ordem: number
+          ordem_letras: string
+          questao_id: string
+          respondida_em: string | null
+          resposta: string | null
+          simulado_id: string
+          tempo_ms: number | null
+        }
+        Insert: {
+          correta?: boolean | null
+          id?: string
+          ordem: number
+          ordem_letras: string
+          questao_id: string
+          respondida_em?: string | null
+          resposta?: string | null
+          simulado_id: string
+          tempo_ms?: number | null
+        }
+        Update: {
+          correta?: boolean | null
+          id?: string
+          ordem?: number
+          ordem_letras?: string
+          questao_id?: string
+          respondida_em?: string | null
+          resposta?: string | null
+          simulado_id?: string
+          tempo_ms?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "simulado_questoes_questao_id_fkey"
+            columns: ["questao_id"]
+            isOneToOne: false
+            referencedRelation: "questoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "simulado_questoes_simulado_id_fkey"
+            columns: ["simulado_id"]
+            isOneToOne: false
+            referencedRelation: "simulados"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      simulados: {
+        Row: {
+          acertos: number | null
+          aprovado: boolean | null
+          duracao_segundos: number | null
+          finalizado_em: string | null
+          id: string
+          iniciado_em: string
+          nota_corte: number
+          status: string
+          tempo_maximo_min: number
+          tipo: string
+          total_questoes: number
+          user_id: string
+        }
+        Insert: {
+          acertos?: number | null
+          aprovado?: boolean | null
+          duracao_segundos?: number | null
+          finalizado_em?: string | null
+          id?: string
+          iniciado_em?: string
+          nota_corte: number
+          status?: string
+          tempo_maximo_min: number
+          tipo: string
+          total_questoes: number
+          user_id: string
+        }
+        Update: {
+          acertos?: number | null
+          aprovado?: boolean | null
+          duracao_segundos?: number | null
+          finalizado_em?: string | null
+          id?: string
+          iniciado_em?: string
+          nota_corte?: number
+          status?: string
+          tempo_maximo_min?: number
+          tipo?: string
+          total_questoes?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "simulados_tipo_fkey"
+            columns: ["tipo"]
+            isOneToOne: false
+            referencedRelation: "configuracoes_prova"
+            referencedColumns: ["tipo"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -308,38 +487,17 @@ export type Database = {
           total: number
         }[]
       }
-      gerar_simulado: {
-        Args: { p_nivel?: string; p_total?: number }
+      estatisticas_aluno: {
+        Args: { p_user_id: string }
         Returns: {
-          alternativas: Json
-          ativa: boolean
-          created_at: string
-          dificuldade: string
-          enunciado: string
-          explicacao: string | null
-          fonte_artigo: string | null
-          fonte_norma: string | null
-          fonte_pagina: number | null
-          gabarito: string
-          geracao_id: string | null
-          id: string
-          importacao_id: string | null
-          nivel: string
-          origem: string
-          status: string
-          subtema: string | null
-          tags: string[]
-          tema: number
-          tema_nome: string
-          updated_at: string
-          versao_material: string
+          aprovados: number
+          media_pct: number
+          melhor_pct: number
+          simulados_completos: number
+          tempo_total_seg: number
+          total_questoes: number
+          total_simulados: number
         }[]
-        SetofOptions: {
-          from: "*"
-          to: "questoes"
-          isOneToOne: false
-          isSetofReturn: true
-        }
       }
       has_role: {
         Args: {
@@ -347,6 +505,14 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      sortear_questoes_simulado: {
+        Args: { p_tipo: string; p_user_id: string }
+        Returns: {
+          ordem: number
+          questao_id: string
+          tema: number
+        }[]
       }
     }
     Enums: {
