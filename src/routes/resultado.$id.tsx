@@ -7,6 +7,7 @@ import {
   ChevronLeft,
   Clock,
   Loader2,
+  PartyPopper,
   Target,
   Trophy,
   XCircle,
@@ -189,6 +190,14 @@ function Resultado() {
                       );
                     })}
                   </ul>
+
+                  {/* Feedback positivo nas questões certas, para motivar o aluno. */}
+                  {q.correta && (
+                    <div className="mt-3 flex items-center gap-2 rounded-md border border-success/30 bg-success/10 p-3 text-xs font-semibold text-card-foreground">
+                      <PartyPopper className="size-4 shrink-0 text-success" />
+                      Parabéns, você acertou essa questão!
+                    </div>
+                  )}
 
                   {/* Referência ao material: aparece sempre nas questões erradas
                       para o aluno saber onde estudar, independentemente do flag
