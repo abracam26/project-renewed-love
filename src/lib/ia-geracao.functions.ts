@@ -471,7 +471,7 @@ export const listarPendentes = createServerFn({ method: "POST" })
       .select("*")
       .eq("status", "rascunho")
       .order("created_at", { ascending: false })
-      .limit(200);
+      .limit(1000);
     if (data.tema !== null) q = q.eq("tema", data.tema);
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
