@@ -92,6 +92,15 @@ function Dashboard() {
         >
           Entrar
         </Link>
+        <p className="mt-6 text-xs text-muted-foreground">
+          <Link to="/termos" className="hover:text-primary">
+            Termos de Uso
+          </Link>
+          <span className="mx-2">·</span>
+          <Link to="/privacidade" className="hover:text-primary">
+            Política de Privacidade
+          </Link>
+        </p>
       </div>
     );
   }

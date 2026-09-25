@@ -231,10 +231,15 @@ function AuthPage() {
         </div>
 
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          Ao continuar você concorda com os termos de uso da plataforma.{" "}
-          <Link to="/suporte" className="text-primary hover:underline">
-            Precisa de ajuda?
+          Ao continuar você concorda com os{" "}
+          <Link to="/termos" className="text-primary hover:underline">
+            Termos de Uso
+          </Link>{" "}
+          e com a{" "}
+          <Link to="/privacidade" className="text-primary hover:underline">
+            Política de Privacidade
           </Link>
+          .
         </p>
       </div>
     </div>

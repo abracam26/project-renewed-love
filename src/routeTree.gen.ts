@@ -16,8 +16,10 @@ import { Route as HistoricoRouteImport } from './routes/historico'
 import { Route as PdfsRouteImport } from './routes/pdfs'
 import { Route as PerfilRouteImport } from './routes/perfil'
 import { Route as PlanosRouteImport } from './routes/planos'
+import { Route as PrivacidadeRouteImport } from './routes/privacidade'
 import { Route as RelatoriosRouteImport } from './routes/relatorios'
 import { Route as SuporteRouteImport } from './routes/suporte'
+import { Route as TermosRouteImport } from './routes/termos'
 import { Route as AdminConfiguracoesRouteImport } from './routes/admin_.configuracoes'
 import { Route as AdminGerarRouteImport } from './routes/admin_.gerar'
 import { Route as AdminQuestoesRouteImport } from './routes/admin_.questoes'
@@ -59,6 +61,11 @@ const PlanosRoute = PlanosRouteImport.update({
   path: '/planos',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrivacidadeRoute = PrivacidadeRouteImport.update({
+  id: '/privacidade',
+  path: '/privacidade',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RelatoriosRoute = RelatoriosRouteImport.update({
   id: '/relatorios',
   path: '/relatorios',
@@ -67,6 +74,11 @@ const RelatoriosRoute = RelatoriosRouteImport.update({
 const SuporteRoute = SuporteRouteImport.update({
   id: '/suporte',
   path: '/suporte',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermosRoute = TermosRouteImport.update({
+  id: '/termos',
+  path: '/termos',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminConfiguracoesRoute = AdminConfiguracoesRouteImport.update({
@@ -103,8 +115,10 @@ export interface FileRoutesByFullPath {
   '/pdfs': typeof PdfsRoute
   '/perfil': typeof PerfilRoute
   '/planos': typeof PlanosRoute
+  '/privacidade': typeof PrivacidadeRoute
   '/relatorios': typeof RelatoriosRoute
   '/suporte': typeof SuporteRoute
+  '/termos': typeof TermosRoute
   '/admin/configuracoes': typeof AdminConfiguracoesRoute
   '/admin/gerar': typeof AdminGerarRoute
   '/admin/questoes': typeof AdminQuestoesRoute
@@ -119,8 +133,10 @@ export interface FileRoutesByTo {
   '/pdfs': typeof PdfsRoute
   '/perfil': typeof PerfilRoute
   '/planos': typeof PlanosRoute
+  '/privacidade': typeof PrivacidadeRoute
   '/relatorios': typeof RelatoriosRoute
   '/suporte': typeof SuporteRoute
+  '/termos': typeof TermosRoute
   '/admin/configuracoes': typeof AdminConfiguracoesRoute
   '/admin/gerar': typeof AdminGerarRoute
   '/admin/questoes': typeof AdminQuestoesRoute
@@ -136,8 +152,10 @@ export interface FileRoutesById {
   '/pdfs': typeof PdfsRoute
   '/perfil': typeof PerfilRoute
   '/planos': typeof PlanosRoute
+  '/privacidade': typeof PrivacidadeRoute
   '/relatorios': typeof RelatoriosRoute
   '/suporte': typeof SuporteRoute
+  '/termos': typeof TermosRoute
   '/admin_/configuracoes': typeof AdminConfiguracoesRoute
   '/admin_/gerar': typeof AdminGerarRoute
   '/admin_/questoes': typeof AdminQuestoesRoute
@@ -154,8 +172,10 @@ export interface FileRouteTypes {
     | '/pdfs'
     | '/perfil'
     | '/planos'
+    | '/privacidade'
     | '/relatorios'
     | '/suporte'
+    | '/termos'
     | '/admin/configuracoes'
     | '/admin/gerar'
     | '/admin/questoes'
@@ -170,8 +190,10 @@ export interface FileRouteTypes {
     | '/pdfs'
     | '/perfil'
     | '/planos'
+    | '/privacidade'
     | '/relatorios'
     | '/suporte'
+    | '/termos'
     | '/admin/configuracoes'
     | '/admin/gerar'
     | '/admin/questoes'
@@ -186,8 +208,10 @@ export interface FileRouteTypes {
     | '/pdfs'
     | '/perfil'
     | '/planos'
+    | '/privacidade'
     | '/relatorios'
     | '/suporte'
+    | '/termos'
     | '/admin_/configuracoes'
     | '/admin_/gerar'
     | '/admin_/questoes'
@@ -203,8 +227,10 @@ export interface RootRouteChildren {
   PdfsRoute: typeof PdfsRoute
   PerfilRoute: typeof PerfilRoute
   PlanosRoute: typeof PlanosRoute
+  PrivacidadeRoute: typeof PrivacidadeRoute
   RelatoriosRoute: typeof RelatoriosRoute
   SuporteRoute: typeof SuporteRoute
+  TermosRoute: typeof TermosRoute
   AdminConfiguracoesRoute: typeof AdminConfiguracoesRoute
   AdminGerarRoute: typeof AdminGerarRoute
   AdminQuestoesRoute: typeof AdminQuestoesRoute
@@ -263,6 +289,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlanosRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/privacidade': {
+      id: '/privacidade'
+      path: '/privacidade'
+      fullPath: '/privacidade'
+      preLoaderRoute: typeof PrivacidadeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/relatorios': {
       id: '/relatorios'
       path: '/relatorios'
@@ -275,6 +308,13 @@ declare module '@tanstack/react-router' {
       path: '/suporte'
       fullPath: '/suporte'
       preLoaderRoute: typeof SuporteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/termos': {
+      id: '/termos'
+      path: '/termos'
+      fullPath: '/termos'
+      preLoaderRoute: typeof TermosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin_/configuracoes': {
@@ -323,8 +363,10 @@ const rootRouteChildren: RootRouteChildren = {
   PdfsRoute: PdfsRoute,
   PerfilRoute: PerfilRoute,
   PlanosRoute: PlanosRoute,
+  PrivacidadeRoute: PrivacidadeRoute,
   RelatoriosRoute: RelatoriosRoute,
   SuporteRoute: SuporteRoute,
+  TermosRoute: TermosRoute,
   AdminConfiguracoesRoute: AdminConfiguracoesRoute,
   AdminGerarRoute: AdminGerarRoute,
   AdminQuestoesRoute: AdminQuestoesRoute,

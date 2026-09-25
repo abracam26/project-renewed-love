@@ -119,10 +119,13 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+const PAGINAS_SEM_MENU = new Set(["/auth", "/privacidade", "/termos"]);
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const bare = pathname === "/auth";
+  // Login e páginas legais são públicas e aparecem sem o menu lateral.
+  const bare = PAGINAS_SEM_MENU.has(pathname.replace(/\/$/, ""));
 
   return (
     <QueryClientProvider client={queryClient}>
