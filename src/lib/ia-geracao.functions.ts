@@ -218,6 +218,32 @@ function proximoSequencial(ids: string[], tema: number) {
   return max + 1;
 }
 
+/** Erros do Gemini que costumam passar sozinhos e valem nova tentativa. */
+const STATUS_PASSAGEIRO = new Set([429, 500, 502, 503, 504]);
+/** Pausas antes da 2ª e da 3ª tentativa. */
+const ESPERAS_GEMINI_MS = [3000, 8000];
+
+const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+function mensagemErroGemini(status: number): string {
+  if (status === 503 || status === 500 || status === 502 || status === 504) {
+    return "O Gemini está sobrecarregado ou instável no momento (problema do lado do Google). Tentamos 3 vezes sem sucesso. Aguarde alguns minutos e tente novamente.";
+  }
+  if (status === 429) {
+    return "O limite de uso da chave do Gemini foi atingido. Aguarde alguns minutos ou confira a cota da chave no Google AI Studio.";
+  }
+  if (status === 400) {
+    return `O Gemini recusou o pedido (erro 400). Confira se a chave GEMINI_API_KEY é válida e se o modelo ${GEMINI_MODEL} aceita este tipo de pedido.`;
+  }
+  if (status === 401 || status === 403) {
+    return "A chave do Gemini foi recusada (sem permissão). Confira a GEMINI_API_KEY configurada no projeto.";
+  }
+  if (status === 404) {
+    return `O modelo ${GEMINI_MODEL} não foi encontrado no Gemini. Confira o nome do modelo.`;
+  }
+  return `O Gemini respondeu com erro ${status}. Tente novamente em alguns minutos.`;
+}
+
 export const gerarQuestoesIA = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => gerarSchema.parse(d))
   .handler(async ({ data }) => {
@@ -286,29 +312,45 @@ export const gerarQuestoesIA = createServerFn({ method: "POST" })
       .filter((l) => l !== undefined)
       .join("\n");
 
-    // 3. Chamada ao Gemini
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: regras }] },
-          contents: [{ role: "user", parts: [{ text: pedido }] }],
-          generationConfig: {
-            temperature: 0.7,
-            responseMimeType: "application/json",
-            responseSchema: GEMINI_RESPONSE_SCHEMA,
-          },
-        }),
+    // 3. Chamada ao Gemini, com novas tentativas quando o erro é passageiro
+    const corpo = JSON.stringify({
+      systemInstruction: { parts: [{ text: regras }] },
+      contents: [{ role: "user", parts: [{ text: pedido }] }],
+      generationConfig: {
+        temperature: 0.7,
+        responseMimeType: "application/json",
+        responseSchema: GEMINI_RESPONSE_SCHEMA,
       },
-    );
+    });
+    let res: Response | null = null;
+    for (let tentativa = 0; tentativa <= ESPERAS_GEMINI_MS.length; tentativa++) {
+      if (tentativa > 0) await esperar(ESPERAS_GEMINI_MS[tentativa - 1] ?? 0);
+      try {
+        res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+            body: corpo,
+          },
+        );
+      } catch (e) {
+        console.error(`[Gemini] falha de rede na tentativa ${tentativa + 1}:`, e);
+        res = null;
+        continue;
+      }
+      if (res.ok || !STATUS_PASSAGEIRO.has(res.status)) break;
+      console.warn(`[Gemini] ${res.status} na tentativa ${tentativa + 1}; tentando de novo.`);
+    }
+    if (!res) {
+      throw new Error(
+        "Não foi possível conectar ao Gemini. Verifique a conexão e tente novamente.",
+      );
+    }
     if (!res.ok) {
       const detalhe = await res.text();
       console.error(`[Gemini] falha ${res.status}: ${detalhe.slice(0, 500)}`);
-      throw new Error(
-        `O Gemini respondeu ${res.status}. Verifique a chave e o modelo ${GEMINI_MODEL}.`,
-      );
+      throw new Error(mensagemErroGemini(res.status));
     }
     const resposta = (await res.json()) as {
       candidates?: { content?: { parts?: { text?: string }[] } }[];
