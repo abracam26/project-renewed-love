@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import logoAsset from "@/assets/abracam-logo.png.asset.json";
 import { supabase } from "@/integrations/supabase/client";
+import { consumirDestinoAposLogin } from "@/lib/destino-login";
 import { mensagemErro } from "@/lib/erros";
 import { cnpjValido, formatarCnpj } from "@/lib/cnpj";
 import { cpfValido, formatarCpf } from "@/lib/cpf";
@@ -51,13 +52,18 @@ function AuthPage() {
   const [emailSent, setEmailSent] = useState(false);
 
   useEffect(() => {
+    // Já logado (ou acabou de entrar): volta para a página que tentou abrir
+    let foi = false;
+    const seguir = () => {
+      if (foi) return;
+      foi = true;
+      void navigate({ href: consumirDestinoAposLogin(), replace: true });
+    };
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/", replace: true });
+      if (data.session) seguir();
     });
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session && (event === "SIGNED_IN" || event === "INITIAL_SESSION")) {
-        navigate({ to: "/", replace: true });
-      }
+      if (session && (event === "SIGNED_IN" || event === "INITIAL_SESSION")) seguir();
     });
     return () => sub.subscription.unsubscribe();
   }, [navigate]);
@@ -111,7 +117,7 @@ function AuthPage() {
     setGoogleLoading(true);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo: window.location.origin + consumirDestinoAposLogin() },
     });
     if (error) {
       setGoogleLoading(false);

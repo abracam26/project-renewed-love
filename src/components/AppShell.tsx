@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   BarChart3,
@@ -8,18 +8,19 @@ import {
   FileDown,
   FileText,
   LayoutDashboard,
+  Loader2,
   LogOut,
   MessageSquare,
   Settings,
   User,
   type LucideIcon,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import logoAsset from "@/assets/abracam-logo.png.asset.json";
 import { ContaGate } from "@/components/ContaGate";
 import { useSupabaseSession } from "@/hooks/use-session";
 import { supabase } from "@/integrations/supabase/client";
-import { currentUser } from "@/lib/mock-data";
+import { guardarDestinoAposLogin } from "@/lib/destino-login";
 import { cn } from "@/lib/utils";
 
 const nav: { to: string; label: string; icon: LucideIcon }[] = [
@@ -37,20 +38,40 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { user } = useSupabaseSession();
+  const { user, loading } = useSupabaseSession();
+  const href = useRouterState({ select: (s) => s.location.href });
+  const saindoRef = useRef(false);
 
+  // O sistema só abre para quem está logado: visitante vai para o login e,
+  // depois de entrar, volta para a página que tentou abrir.
+  useEffect(() => {
+    if (loading || user) return;
+    if (!saindoRef.current) guardarDestinoAposLogin(href);
+    void navigate({ to: "/auth", replace: true });
+  }, [loading, user, href, navigate]);
+
+  const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
   const displayName =
-    (user?.user_metadata?.["username"] as string | undefined) ??
-    user?.email?.split("@")[0] ??
-    currentUser.username;
+    (typeof meta["username"] === "string" && meta["username"]) ||
+    (typeof meta["full_name"] === "string" && meta["full_name"].split(" ")[0]) ||
+    user?.email?.split("@")[0] ||
+    "";
 
   async function handleSignOut() {
+    saindoRef.current = true;
     await queryClient.cancelQueries();
     queryClient.clear();
     await supabase.auth.signOut();
     navigate({ to: "/auth", replace: true });
   }
 
+  if (loading || !user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-sidebar">
+        <Loader2 className="size-6 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -128,7 +149,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </span>
               <span className="hidden leading-tight sm:block">
                 <span className="block text-sm font-medium text-sidebar-foreground">{displayName}</span>
-                <span className="block text-xs text-muted-foreground">{user ? "Online" : "Visitante"}</span>
+                <span className="block text-xs text-muted-foreground">Online</span>
               </span>
             </div>
           </div>
