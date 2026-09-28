@@ -337,7 +337,9 @@ export function GestorQuestoes({ token }: { token: string }) {
                   {detalhe.dificuldade}
                 </DialogDescription>
               </DialogHeader>
-              <p className="text-sm leading-relaxed text-card-foreground">{detalhe.enunciado}</p>
+              <p className="whitespace-pre-line text-sm leading-relaxed text-card-foreground">
+                {detalhe.enunciado}
+              </p>
               <ul className="space-y-2">
                 {detalhe.alternativas.map((a) => (
                   <li

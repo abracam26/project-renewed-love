@@ -245,7 +245,9 @@ function ProvaInterna({
         <p className="text-xs uppercase tracking-wide text-muted-foreground">
           Tema {atual.tema} · {atual.tema_nome}
         </p>
-        <p className="mt-2 text-base leading-relaxed text-card-foreground">{atual.enunciado}</p>
+        <p className="mt-2 whitespace-pre-line text-base leading-relaxed text-card-foreground">
+          {atual.enunciado}
+        </p>
 
         <ul className="mt-5 space-y-2">
           {atual.alternativas.map((a) => {

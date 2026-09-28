@@ -156,7 +156,9 @@ function Resultado() {
                       </>
                     ) : null}
                   </p>
-                  <p className="mt-1 text-sm text-card-foreground">{q.enunciado}</p>
+                  <p className="mt-1 whitespace-pre-line text-sm text-card-foreground">
+                    {q.enunciado}
+                  </p>
 
                   <ul className="mt-3 space-y-1.5">
                     {q.alternativas.map((a) => {
