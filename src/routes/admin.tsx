@@ -5,7 +5,6 @@ import {
   ClipboardList,
   Database,
   FileUp,
-  Flag,
   Loader2,
   Settings,
   Settings2,
@@ -83,17 +82,6 @@ function PainelAdmin({ token }: { token: string }) {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Link
-              to="/admin/reportes"
-              className={`inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-semibold hover:bg-accent ${
-                d && d.reportesAbertos > 0
-                  ? "border-destructive/60 text-destructive"
-                  : "border-input bg-card text-card-foreground"
-              }`}
-            >
-              <Flag className="size-4" />
-              Reportes de questões{d && d.reportesAbertos > 0 ? ` (${d.reportesAbertos})` : ""}
-            </Link>
             <Link
               to="/admin/usuarios"
               className="inline-flex items-center gap-2 rounded-md border border-input bg-card px-4 py-2 text-sm font-semibold text-card-foreground hover:bg-accent"

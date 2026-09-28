@@ -230,57 +230,57 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          cadastro_completo_em: string | null
+          cnpj: string | null
+          cpf: string | null
           cpf_hash: string | null
           created_at: string
+          email: string | null
           full_name: string | null
           id: string
+          instituicao: string | null
+          nome_completo: string | null
           plano: string
           plano_validade: string | null
           show_in_ranking: boolean
           updated_at: string
           username: string | null
-          cadastro_completo_em: string | null
-          cnpj: string | null
-          cpf: string | null
-          email: string | null
-          instituicao: string | null
-          nome_completo: string | null
         }
         Insert: {
           avatar_url?: string | null
+          cadastro_completo_em?: string | null
+          cnpj?: string | null
+          cpf?: string | null
           cpf_hash?: string | null
           created_at?: string
+          email?: string | null
           full_name?: string | null
           id: string
+          instituicao?: string | null
+          nome_completo?: string | null
           plano?: string
           plano_validade?: string | null
           show_in_ranking?: boolean
           updated_at?: string
           username?: string | null
-          cadastro_completo_em?: string | null
-          cnpj?: string | null
-          cpf?: string | null
-          email?: string | null
-          instituicao?: string | null
-          nome_completo?: string | null
         }
         Update: {
           avatar_url?: string | null
+          cadastro_completo_em?: string | null
+          cnpj?: string | null
+          cpf?: string | null
           cpf_hash?: string | null
           created_at?: string
+          email?: string | null
           full_name?: string | null
           id?: string
+          instituicao?: string | null
+          nome_completo?: string | null
           plano?: string
           plano_validade?: string | null
           show_in_ranking?: boolean
           updated_at?: string
           username?: string | null
-          cadastro_completo_em?: string | null
-          cnpj?: string | null
-          cpf?: string | null
-          email?: string | null
-          instituicao?: string | null
-          nome_completo?: string | null
         }
         Relationships: []
       }
@@ -484,12 +484,12 @@ export type Database = {
           id: string
           iniciado_em: string
           nota_corte: number
+          sessao_prova: string | null
           status: string
           tempo_maximo_min: number
           tipo: string
           total_questoes: number
           user_id: string
-          sessao_prova: string | null
         }
         Insert: {
           acertos?: number | null
@@ -499,12 +499,12 @@ export type Database = {
           id?: string
           iniciado_em?: string
           nota_corte: number
+          sessao_prova?: string | null
           status?: string
           tempo_maximo_min: number
           tipo: string
           total_questoes: number
           user_id: string
-          sessao_prova?: string | null
         }
         Update: {
           acertos?: number | null
@@ -514,12 +514,12 @@ export type Database = {
           id?: string
           iniciado_em?: string
           nota_corte?: number
+          sessao_prova?: string | null
           status?: string
           tempo_maximo_min?: number
           tipo?: string
           total_questoes?: number
           user_id?: string
-          sessao_prova?: string | null
         }
         Relationships: [
           {
@@ -567,19 +567,19 @@ export type Database = {
         Returns: {
           acesso_ativo: boolean
           cadastro_completo: boolean
-          cnpj: string | null
-          cpf: string | null
+          cnpj: string
+          cpf: string
           criado_em: string
-          email: string | null
-          instituicao: string | null
+          email: string
+          instituicao: string
           is_admin: boolean
-          nome: string | null
+          nome: string
           plano: string
-          plano_validade: string | null
+          plano_validade: string
           provedor: string
           simulados: number
           total: number
-          ultimo_acesso: string | null
+          ultimo_acesso: string
           user_id: string
         }[]
       }

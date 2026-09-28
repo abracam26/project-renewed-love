@@ -23,7 +23,6 @@ import { Route as TermosRouteImport } from './routes/termos'
 import { Route as AdminConfiguracoesRouteImport } from './routes/admin_.configuracoes'
 import { Route as AdminGerarRouteImport } from './routes/admin_.gerar'
 import { Route as AdminQuestoesRouteImport } from './routes/admin_.questoes'
-import { Route as AdminReportesRouteImport } from './routes/admin_.reportes'
 import { Route as AdminUsuariosRouteImport } from './routes/admin_.usuarios'
 import { Route as ProvaIdRouteImport } from './routes/prova.$id'
 import { Route as ResultadoIdRouteImport } from './routes/resultado.$id'
@@ -98,11 +97,6 @@ const AdminQuestoesRoute = AdminQuestoesRouteImport.update({
   path: '/admin/questoes',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminReportesRoute = AdminReportesRouteImport.update({
-  id: '/admin_/reportes',
-  path: '/admin/reportes',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AdminUsuariosRoute = AdminUsuariosRouteImport.update({
   id: '/admin_/usuarios',
   path: '/admin/usuarios',
@@ -134,7 +128,6 @@ export interface FileRoutesByFullPath {
   '/admin/configuracoes': typeof AdminConfiguracoesRoute
   '/admin/gerar': typeof AdminGerarRoute
   '/admin/questoes': typeof AdminQuestoesRoute
-  '/admin/reportes': typeof AdminReportesRoute
   '/admin/usuarios': typeof AdminUsuariosRoute
   '/prova/$id': typeof ProvaIdRoute
   '/resultado/$id': typeof ResultadoIdRoute
@@ -154,7 +147,6 @@ export interface FileRoutesByTo {
   '/admin/configuracoes': typeof AdminConfiguracoesRoute
   '/admin/gerar': typeof AdminGerarRoute
   '/admin/questoes': typeof AdminQuestoesRoute
-  '/admin/reportes': typeof AdminReportesRoute
   '/admin/usuarios': typeof AdminUsuariosRoute
   '/prova/$id': typeof ProvaIdRoute
   '/resultado/$id': typeof ResultadoIdRoute
@@ -175,7 +167,6 @@ export interface FileRoutesById {
   '/admin_/configuracoes': typeof AdminConfiguracoesRoute
   '/admin_/gerar': typeof AdminGerarRoute
   '/admin_/questoes': typeof AdminQuestoesRoute
-  '/admin_/reportes': typeof AdminReportesRoute
   '/admin_/usuarios': typeof AdminUsuariosRoute
   '/prova/$id': typeof ProvaIdRoute
   '/resultado/$id': typeof ResultadoIdRoute
@@ -197,7 +188,6 @@ export interface FileRouteTypes {
     | '/admin/configuracoes'
     | '/admin/gerar'
     | '/admin/questoes'
-    | '/admin/reportes'
     | '/admin/usuarios'
     | '/prova/$id'
     | '/resultado/$id'
@@ -217,7 +207,6 @@ export interface FileRouteTypes {
     | '/admin/configuracoes'
     | '/admin/gerar'
     | '/admin/questoes'
-    | '/admin/reportes'
     | '/admin/usuarios'
     | '/prova/$id'
     | '/resultado/$id'
@@ -237,7 +226,6 @@ export interface FileRouteTypes {
     | '/admin_/configuracoes'
     | '/admin_/gerar'
     | '/admin_/questoes'
-    | '/admin_/reportes'
     | '/admin_/usuarios'
     | '/prova/$id'
     | '/resultado/$id'
@@ -258,7 +246,6 @@ export interface RootRouteChildren {
   AdminConfiguracoesRoute: typeof AdminConfiguracoesRoute
   AdminGerarRoute: typeof AdminGerarRoute
   AdminQuestoesRoute: typeof AdminQuestoesRoute
-  AdminReportesRoute: typeof AdminReportesRoute
   AdminUsuariosRoute: typeof AdminUsuariosRoute
   ProvaIdRoute: typeof ProvaIdRoute
   ResultadoIdRoute: typeof ResultadoIdRoute
@@ -364,13 +351,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminQuestoesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin_/reportes': {
-      id: '/admin_/reportes'
-      path: '/admin/reportes'
-      fullPath: '/admin/reportes'
-      preLoaderRoute: typeof AdminReportesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/admin_/usuarios': {
       id: '/admin_/usuarios'
       path: '/admin/usuarios'
@@ -410,7 +390,6 @@ const rootRouteChildren: RootRouteChildren = {
   AdminConfiguracoesRoute: AdminConfiguracoesRoute,
   AdminGerarRoute: AdminGerarRoute,
   AdminQuestoesRoute: AdminQuestoesRoute,
-  AdminReportesRoute: AdminReportesRoute,
   AdminUsuariosRoute: AdminUsuariosRoute,
   ProvaIdRoute: ProvaIdRoute,
   ResultadoIdRoute: ResultadoIdRoute,

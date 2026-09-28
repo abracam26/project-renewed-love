@@ -79,7 +79,7 @@ function Historico() {
             const erros = s.total_questoes - (s.acertos ?? 0);
             const statusLabel =
               s.status === "em_andamento"
-                ? "Não finalizado"
+                ? "Em andamento"
                 : s.status === "abandonado"
                   ? "Abandonado"
                   : s.aprovado
@@ -137,7 +137,15 @@ function Historico() {
                     {new Date(s.iniciado_em).toLocaleString("pt-BR")} · Duração{" "}
                     {fmtDur(s.duracao_segundos)}
                   </p>
-                  {s.status === "finalizado" ? (
+                  {s.status === "em_andamento" ? (
+                    <Link
+                      to="/prova/$id"
+                      params={{ id: s.id }}
+                      className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-gold"
+                    >
+                      Retomar
+                    </Link>
+                  ) : s.status === "finalizado" ? (
                     <Link
                       to="/resultado/$id"
                       params={{ id: s.id }}
