@@ -9,14 +9,36 @@ import {
 } from "@/lib/configuracoes-prova.functions";
 import { TEMAS } from "@/lib/questoes-schema";
 
-const TIPOS = ["ABT1", "ABT2", "ABT", "GRATIS", "LIVRE"] as const;
-/** O Treino livre não aparece mais: foi substituído pelo ABT – Correspondentes. */
-const TIPOS_VISIVEIS: readonly Tipo[] = ["ABT1", "ABT2", "ABT", "GRATIS"];
+const TIPOS = [
+  "ABT1",
+  "ABT2",
+  "ABT",
+  "GRATIS_ABT1",
+  "GRATIS_ABT2",
+  "GRATIS_ABT",
+  "GRATIS",
+  "LIVRE",
+] as const;
+/**
+ * O Treino livre (substituído pelo ABT) e o teste grátis único (agora um
+ * por prova) não aparecem mais; ficam no banco só por causa do histórico.
+ */
+const TIPOS_VISIVEIS: readonly Tipo[] = [
+  "ABT1",
+  "ABT2",
+  "ABT",
+  "GRATIS_ABT1",
+  "GRATIS_ABT2",
+  "GRATIS_ABT",
+];
 type Tipo = (typeof TIPOS)[number];
 
 const LABEL: Record<Tipo, string> = {
   ABT1: "Simulado ABT1",
   ABT2: "Simulado ABT2",
+  GRATIS_ABT1: "Teste grátis ABT1",
+  GRATIS_ABT2: "Teste grátis ABT2",
+  GRATIS_ABT: "Teste grátis ABT – Correspondentes",
   GRATIS: "Teste grátis",
   ABT: "Simulado ABT – Correspondentes",
   LIVRE: "Treino livre",

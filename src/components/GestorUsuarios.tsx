@@ -40,6 +40,7 @@ import {
   listarUsuarios,
   type FiltroUsuarios,
 } from "@/lib/usuarios.functions";
+import { nomeProva } from "@/lib/provas";
 import { cn } from "@/lib/utils";
 
 /**
@@ -321,7 +322,7 @@ function DetalheUsuario({ token, userId }: { token: string; userId: string }) {
                 className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-secondary/40 px-3 py-2"
               >
                 <span className="font-medium text-card-foreground">
-                  {s.tipo} · {dataHora(s.iniciado_em)}
+                  {nomeProva(s.tipo)} · {dataHora(s.iniciado_em)}
                 </span>
                 <span className="text-muted-foreground">
                   {s.status === "finalizado"

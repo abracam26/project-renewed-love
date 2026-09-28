@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useToken } from "@/hooks/use-token";
 import { mensagemErro } from "@/lib/erros";
+import { nomeProva, siglaProva } from "@/lib/provas";
 import { TEMAS } from "@/lib/questoes-schema";
 import { relatorioAluno } from "@/lib/relatorios.functions";
 import { cn } from "@/lib/utils";
@@ -160,7 +161,7 @@ function Relatorios() {
               valor={resumo.melhor ? fmtPct(resumo.melhor.pct) : "—"}
               detalhe={
                 resumo.melhor
-                  ? `${resumo.melhor.acertos}/${resumo.melhor.total} acertos · ${resumo.melhor.tipo}`
+                  ? `${resumo.melhor.acertos}/${resumo.melhor.total} acertos · ${nomeProva(resumo.melhor.tipo)}`
                   : ""
               }
             />
@@ -261,10 +262,12 @@ function Relatorios() {
                         s.pct >= s.notaCorte ? "bg-success" : "bg-destructive/80",
                       )}
                       style={{ height: `${Math.max(4, s.pct)}%` }}
-                      title={`${s.tipo} · ${s.data ? new Date(s.data).toLocaleDateString("pt-BR") : ""}`}
+                      title={`${nomeProva(s.tipo)} · ${s.data ? new Date(s.data).toLocaleDateString("pt-BR") : ""}`}
                     />
                   </div>
-                  <span className="truncate text-[10px] text-muted-foreground">{s.tipo}</span>
+                  <span className="truncate text-[10px] text-muted-foreground">
+                    {siglaProva(s.tipo)}
+                  </span>
                 </div>
               ))}
             </div>

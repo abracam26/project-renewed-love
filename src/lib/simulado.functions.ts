@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { CHAVE_FEEDBACK } from "@/lib/configuracoes-prova.functions";
 import { acessoAtivo } from "@/lib/planos";
+import { ehTesteGratis } from "@/lib/provas";
 import { LETRAS, type Letra, type QuestaoRow } from "@/lib/questoes-schema";
 
 /**
@@ -17,8 +18,20 @@ import { LETRAS, type Letra, type QuestaoRow } from "@/lib/questoes-schema";
 
 const tokenSchema = z.string().min(20, "Sessão inválida. Faça login novamente.");
 
-/** LIVRE continua no tipo só por causa do histórico: foi substituído pelo ABT. */
-const TIPOS_PROVA = ["ABT1", "ABT2", "ABT", "GRATIS", "LIVRE"] as const;
+/**
+ * LIVRE e GRATIS continuam no tipo só por causa do histórico: o Treino livre
+ * foi substituído pelo ABT, e o teste grátis agora é escolhido por prova.
+ */
+const TIPOS_PROVA = [
+  "ABT1",
+  "ABT2",
+  "ABT",
+  "GRATIS_ABT1",
+  "GRATIS_ABT2",
+  "GRATIS_ABT",
+  "GRATIS",
+  "LIVRE",
+] as const;
 export type TipoProva = (typeof TIPOS_PROVA)[number];
 
 const inicioSchema = z.object({
@@ -163,6 +176,12 @@ export const iniciarSimulado = createServerFn({ method: "POST" })
     if (data.tipo === "LIVRE") {
       throw new Error("O Treino livre foi substituído pelo simulado ABT – Correspondentes.");
     }
+    if (data.tipo === "GRATIS") {
+      throw new Error(
+        "Escolha de qual prova será o teste grátis: ABT1, ABT2 ou ABT – Correspondentes.",
+      );
+    }
+    const gratis = ehTesteGratis(data.tipo);
 
     // Cadastro completo e plano ativo (admins sempre liberados)
     const [{ data: perfil }, { data: papel }] = await Promise.all([
@@ -182,14 +201,14 @@ export const iniciarSimulado = createServerFn({ method: "POST" })
     if (!admin && !(perfil?.cadastro_completo_em && perfil.cpf)) {
       throw new Error("Complete seu cadastro antes de iniciar um simulado.");
     }
-    if (data.tipo !== "GRATIS" && !admin && !acessoAtivo(perfil?.plano, perfil?.plano_validade)) {
+    if (!gratis && !admin && !acessoAtivo(perfil?.plano, perfil?.plano_validade)) {
       throw new Error(
         "Seu plano não está ativo. Sem plano, você pode fazer apenas o teste grátis. Fale com a ABRACAM para liberar o acesso.",
       );
     }
 
-    // Teste grátis: uma vez por CPF
-    if (data.tipo === "GRATIS") {
+    // Teste grátis: uma vez por CPF, em qualquer uma das provas
+    if (gratis) {
       if (!perfil?.cpf_hash) {
         throw new Error("Complete seu cadastro com o CPF antes de fazer o teste grátis.");
       }
@@ -257,7 +276,7 @@ export const iniciarSimulado = createServerFn({ method: "POST" })
 
     // Marca o CPF como tendo usado o grátis (mesmo antes de terminar, para
     // impedir múltiplos inícios abusivos)
-    if (data.tipo === "GRATIS") {
+    if (gratis) {
       const { data: perfil } = await supabaseAdmin
         .from("profiles")
         .select("cpf_hash")

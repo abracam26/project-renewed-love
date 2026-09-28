@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { abreviarNome, tokenSchema, usuarioLogado } from "@/lib/auth-servidor";
+import { ehTesteGratis } from "@/lib/provas";
 
 /**
  * Relatório do aluno (página Relatórios): números gerais, desempenho por
@@ -92,7 +93,7 @@ export const relatorioAluno = createServerFn({ method: "POST" })
       resumo: {
         finalizados: lista.length,
         completos: completos.length,
-        gratis: lista.filter((s) => s.tipo === "GRATIS").length,
+        gratis: lista.filter((s) => ehTesteGratis(s.tipo)).length,
         abt: lista.filter((s) => s.tipo === "ABT").length,
         aprovadosCompletos: completos.filter((s) => s.aprovado).length,
         melhor: melhor

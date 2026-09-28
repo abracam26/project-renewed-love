@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { IdEReporte } from "@/components/ReportarQuestao";
 import { useToken } from "@/hooks/use-token";
 import { mensagemErro } from "@/lib/erros";
+import { nomeProva } from "@/lib/provas";
 import { lerSessaoProva, limparSessaoProva } from "@/lib/sessao-prova";
 import {
   abandonarSimulado,
@@ -304,7 +305,9 @@ function ProvaInterna({
       {/* Cabeçalho fixo com cronômetro */}
       <section className="panel flex flex-wrap items-center justify-between gap-3 p-4">
         <div>
-          <p className="text-xs text-muted-foreground">Simulado {query.data.simulado.tipo}</p>
+          <p className="text-xs text-muted-foreground">
+            Simulado {nomeProva(query.data.simulado.tipo)}
+          </p>
           <p className="text-sm font-semibold text-card-foreground">
             Questão {i + 1} de {questoes.length}
             <span className="ml-3 text-xs font-normal text-muted-foreground">

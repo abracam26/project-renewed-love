@@ -70,7 +70,7 @@ function Planos() {
       periodo: "uma vez por CPF",
       descricao: "Para conhecer o simulador antes de contratar.",
       beneficios: [
-        "1 simulado de 10 questões",
+        "1 simulado de 10 questões, da prova que você escolher: ABT1, ABT2 ou ABT – Correspondentes",
         "30 minutos para responder",
         "Resultado com as questões certas e erradas",
       ],

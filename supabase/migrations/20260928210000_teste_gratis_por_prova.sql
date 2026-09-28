@@ -1,41 +1,19 @@
 -- =====================================================================
--- Prova ABT (Certificação dos Correspondentes) no lugar do Treino livre.
+-- Teste grátis por prova: o aluno escolhe fazer o teste grátis do ABT1,
+-- do ABT2 ou do ABT – Correspondentes. Continua valendo um teste grátis
+-- por CPF (qualquer um dos três).
 --
--- 1. questoes.exame separa os bancos: 'ABT12' (ABT1/ABT2, Material de
---    Apoio) e 'ABT' (Correspondentes, e-book próprio). IDs do banco ABT
---    começam com ABTC- (ex.: ABTC-T4-0001).
--- 2. Novo tipo de prova 'ABT': 20 questões, 120 minutos, nota 70%,
---    dificuldade 50/30/20 e temas 30/20/25/25 (câmbio, PLD/FTP, SFN,
---    correspondente), conforme o e-book. O tipo 'LIVRE' continua na tabela
---    só por causa do histórico; não aparece mais para iniciar.
--- 3. O sorteio passa a filtrar pelo banco da prova.
--- 4. Contagem de questões por prova e tema (painel admin).
--- Idempotente: pode ser aplicada mais de uma vez. A lista de tipos e o
--- sorteio são os mesmos da migração 20260928210000 (teste grátis por prova),
--- para que as duas possam rodar em qualquer ordem.
+-- Novos tipos em configuracoes_prova (editáveis no /admin/configuracoes):
+--   GRATIS_ABT1  10 questões, 30 min, dificuldade do ABT1 (40/45/15)
+--   GRATIS_ABT2  10 questões, 30 min, dificuldade do ABT2 (15/45/40)
+--   GRATIS_ABT   10 questões, 30 min, dificuldade do e-book (50/30/20),
+--                banco do ABT – Correspondentes
+-- Temas: 5/3/1/1 nos testes ABT1/ABT2 (como o teste grátis atual) e
+-- 3/2/2/3 no ABT (câmbio, PLD/FTP, SFN, correspondente), para fechar 10.
+-- O tipo GRATIS antigo fica só por causa do histórico.
+-- Idempotente: pode ser aplicada mais de uma vez.
 -- =====================================================================
 
--- ---------------------------------------------------------------------
--- 1. Banco de questões por prova
--- ---------------------------------------------------------------------
-ALTER TABLE public.questoes
-  ADD COLUMN IF NOT EXISTS exame text NOT NULL DEFAULT 'ABT12';
-
-ALTER TABLE public.questoes DROP CONSTRAINT IF EXISTS questoes_exame_valido;
-ALTER TABLE public.questoes
-  ADD CONSTRAINT questoes_exame_valido CHECK (exame IN ('ABT12', 'ABT'));
-
--- O prefixo do ID e o banco sempre andam juntos
-ALTER TABLE public.questoes DROP CONSTRAINT IF EXISTS questoes_exame_confere_id;
-ALTER TABLE public.questoes
-  ADD CONSTRAINT questoes_exame_confere_id CHECK ((exame = 'ABT') = (id LIKE 'ABTC-%'));
-
-CREATE INDEX IF NOT EXISTS questoes_sorteio_exame_idx
-  ON public.questoes (exame, tema, dificuldade) WHERE ativa AND status = 'aprovada';
-
--- ---------------------------------------------------------------------
--- 2. Tipo de prova ABT
--- ---------------------------------------------------------------------
 DO $$
 DECLARE
   r record;
@@ -59,12 +37,12 @@ INSERT INTO public.configuracoes_prova
    pct_facil, pct_media, pct_dificil,
    pct_tema_1, pct_tema_2, pct_tema_3, pct_tema_4, mostrar_explicacao)
 VALUES
-  ('ABT', 20, 120, 70, 50, 30, 20, 30, 20, 25, 25, false)
+  ('GRATIS_ABT1', 10, 30, 70, 40, 45, 15, 50, 30, 10, 10, false),
+  ('GRATIS_ABT2', 10, 30, 70, 15, 45, 40, 50, 30, 10, 10, false),
+  ('GRATIS_ABT',  10, 30, 70, 50, 30, 20, 30, 20, 20, 30, false)
 ON CONFLICT (tipo) DO NOTHING;
 
--- ---------------------------------------------------------------------
--- 3. Sorteio filtrando pelo banco da prova
--- ---------------------------------------------------------------------
+-- Sorteio: o teste grátis do ABT usa o banco do ABT
 CREATE OR REPLACE FUNCTION public.sortear_questoes_simulado(p_user_id uuid, p_tipo text)
  RETURNS TABLE(questao_id text, ordem smallint, tema smallint)
  LANGUAGE plpgsql
@@ -209,25 +187,3 @@ END;
 $function$;
 
 GRANT EXECUTE ON FUNCTION public.sortear_questoes_simulado(uuid, text) TO authenticated, service_role;
-
--- ---------------------------------------------------------------------
--- 4. Contagem por prova e tema (painel admin)
--- ---------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.contar_questoes_por_exame_tema()
-RETURNS TABLE (exame text, tema smallint, total bigint, ativas bigint)
-LANGUAGE sql
-STABLE
-SET search_path = public
-AS $$
-  SELECT e.exame, t.tema::smallint,
-         count(q.id) AS total,
-         count(q.id) FILTER (WHERE q.ativa AND q.status = 'aprovada') AS ativas
-  FROM (VALUES ('ABT12'), ('ABT')) AS e(exame)
-  CROSS JOIN generate_series(1, 4) AS t(tema)
-  LEFT JOIN public.questoes q ON q.exame = e.exame AND q.tema = t.tema
-  GROUP BY e.exame, t.tema
-  ORDER BY e.exame DESC, t.tema;
-$$;
-
-REVOKE ALL ON FUNCTION public.contar_questoes_por_exame_tema() FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.contar_questoes_por_exame_tema() TO authenticated, service_role;
