@@ -1,12 +1,3 @@
-export const currentUser = {
-  username: "wallasmonteiro019",
-  email: "wallasmonteiro019@gmail.com",
-  id: "30048302-d0df-46da-90b2-dde325135e6f",
-  createdAt: "15 de Janeiro de 2024",
-  plan: "Inativo",
-  rankingOptIn: false,
-};
-
 export const dashboardStats = {
   simulados: 66,
   taxaAprovacao: 26,

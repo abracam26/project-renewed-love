@@ -25,6 +25,13 @@ export function formatarCpf(v: string): string {
   return out;
 }
 
+/** Mostra só o miolo do CPF: "52998224725" -> "***.982.247-**". */
+export function mascararCpf(v: string): string {
+  const s = limparCpf(v);
+  if (s.length !== 11) return formatarCpf(s);
+  return `***.${s.slice(3, 6)}.${s.slice(6, 9)}-**`;
+}
+
 /** Valida o CPF pelo algoritmo do dígito verificador. */
 export function cpfValido(v: string): boolean {
   const s = limparCpf(v);

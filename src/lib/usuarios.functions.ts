@@ -194,6 +194,73 @@ export const statusConta = createServerFn({ method: "POST" })
   });
 
 // ---------------------------------------------------------------------
+// Página Perfil: dados da própria conta e preferência do ranking
+// ---------------------------------------------------------------------
+export const meuPerfil = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => z.object({ token: tokenSchema }).parse(d))
+  .handler(async ({ data }) => {
+    const supabaseAdmin = await servidor();
+    const user = await usuarioDoToken(supabaseAdmin, data.token);
+    const [{ data: perfil, error }, admin] = await Promise.all([
+      supabaseAdmin
+        .from("profiles")
+        .select(
+          "nome_completo, full_name, username, email, cpf, cpf_hash, cnpj, instituicao, plano, plano_validade, cadastro_completo_em, created_at, show_in_ranking",
+        )
+        .eq("id", user.id)
+        .maybeSingle(),
+      ehAdmin(supabaseAdmin, user.id),
+    ]);
+    if (error) throw new Error(error.message);
+
+    let gratuidadeUsada = false;
+    if (perfil?.cpf_hash) {
+      const { data: usada } = await supabaseAdmin
+        .from("gratuidade_usada")
+        .select("usada_em")
+        .eq("cpf_hash", perfil.cpf_hash)
+        .maybeSingle();
+      gratuidadeUsada = Boolean(usada);
+    }
+
+    const provedores = (user.app_metadata?.["providers"] as string[] | undefined) ?? [
+      (user.app_metadata?.["provider"] as string | undefined) ?? "email",
+    ];
+
+    return {
+      nome: perfil?.nome_completo ?? perfil?.full_name ?? perfil?.username ?? "",
+      email: user.email ?? perfil?.email ?? null,
+      cpf: perfil?.cpf ?? null,
+      cnpj: perfil?.cnpj ?? null,
+      instituicao: perfil?.instituicao ?? null,
+      criadoEm: perfil?.created_at ?? user.created_at,
+      cadastroCompletoEm: perfil?.cadastro_completo_em ?? null,
+      provedores,
+      plano: perfil?.plano ?? "gratis",
+      planoValidade: perfil?.plano_validade ?? null,
+      acessoAtivo: acessoAtivo(perfil?.plano, perfil?.plano_validade),
+      isAdmin: admin,
+      gratuidadeUsada,
+      participaRanking: perfil?.show_in_ranking ?? true,
+    };
+  });
+
+export const definirParticipacaoRanking = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) =>
+    z.object({ token: tokenSchema, participar: z.boolean() }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    const supabaseAdmin = await servidor();
+    const user = await usuarioDoToken(supabaseAdmin, data.token);
+    const { error } = await supabaseAdmin
+      .from("profiles")
+      .update({ show_in_ranking: data.participar })
+      .eq("id", user.id);
+    if (error) throw new Error(error.message);
+    return { participar: data.participar };
+  });
+
+// ---------------------------------------------------------------------
 // Cadastro de nova conta (tela /auth, aba "Criar conta")
 // ---------------------------------------------------------------------
 const novoCadastroSchema = dadosCadastroSchema.extend({
