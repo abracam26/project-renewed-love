@@ -130,7 +130,7 @@ function Resultado() {
 
       <section className="panel p-5">
         <h2 className="text-lg font-semibold text-card-foreground">Revisão questão a questão</h2>
-        {!query.data.mostrarExplicacao && (
+        {query.data.mostrarFeedback && !query.data.mostrarExplicacao && (
           <p className="mt-1 text-xs text-muted-foreground">
             A explicação detalhada será liberada em breve pela ABRACAM.
           </p>
@@ -193,17 +193,17 @@ function Resultado() {
                     })}
                   </ul>
 
-                  {/* Feedback positivo nas questões certas, para motivar o aluno. */}
-                  {q.correta && (
+                  {/* Feedback positivo nas questões certas, para motivar o aluno.
+                      Some quando o admin desliga o feedback dos resultados. */}
+                  {query.data.mostrarFeedback && q.correta && (
                     <div className="mt-3 flex items-center gap-2 rounded-md border border-success/30 bg-success/10 p-3 text-xs font-semibold text-card-foreground">
                       <PartyPopper className="size-4 shrink-0 text-success" />
                       Parabéns, você acertou essa questão!
                     </div>
                   )}
 
-                  {/* Referência ao material: aparece sempre nas questões erradas
-                      para o aluno saber onde estudar, independentemente do flag
-                      de mostrar_explicacao. */}
+                  {/* Referência ao material nas questões erradas. Com o feedback
+                      desligado, o servidor nem envia a fonte. */}
                   {q.correta === false && (q.fonte_norma || q.fonte_artigo || q.fonte_pagina) && (
                     <div className="mt-3 flex items-start gap-2 rounded-md border border-info/30 bg-info/10 p-3 text-xs leading-relaxed text-card-foreground">
                       <BookOpen className="mt-0.5 size-4 shrink-0 text-info" />

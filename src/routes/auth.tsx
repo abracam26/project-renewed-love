@@ -1,9 +1,14 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Loader2, Lock, Mail, User } from "lucide-react";
+import { Building2, IdCard, Landmark, Loader2, Lock, Mail, User } from "lucide-react";
 import { toast } from "sonner";
+import { useServerFn } from "@tanstack/react-start";
 import logoAsset from "@/assets/abracam-logo.png.asset.json";
 import { supabase } from "@/integrations/supabase/client";
+import { mensagemErro } from "@/lib/erros";
+import { cnpjValido, formatarCnpj } from "@/lib/cnpj";
+import { cpfValido, formatarCpf } from "@/lib/cpf";
+import { cadastrarAluno } from "@/lib/usuarios.functions";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/auth")({
@@ -33,7 +38,14 @@ function AuthPage() {
   const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [username, setUsername] = useState("");
+  const [nome, setNome] = useState("");
+  const [cpf, setCpf] = useState("");
+  const [cnpj, setCnpj] = useState("");
+  const [instituicao, setInstituicao] = useState("");
+  const cadastrar = useServerFn(cadastrarAluno);
+
+  const cpfInvalido = cpf.replace(/\D/g, "").length === 11 && !cpfValido(cpf);
+  const cnpjInvalido = cnpj.replace(/\D/g, "").length === 14 && !cnpjValido(cnpj);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
@@ -59,24 +71,30 @@ function AuthPage() {
         if (error) throw error;
         toast.success("Bem-vindo de volta!");
       } else {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: window.location.origin,
-            data: { username: username || email.split("@")[0] },
+        // A conta é criada no servidor, que grava CPF e dados do cadastro no
+        // perfil sem passá-los pelos metadados do login.
+        const { sessao } = await cadastrar({
+          data: {
+            nome,
+            cpf,
+            cnpj: cnpj || null,
+            instituicao,
+            email,
+            senha: password,
+            redirectTo: window.location.origin,
           },
         });
-        if (error) throw error;
-        if (!data.session) {
+        if (sessao) {
+          const { error } = await supabase.auth.setSession(sessao);
+          if (error) throw error;
+          toast.success("Conta criada com sucesso!");
+        } else {
           setEmailSent(true);
           toast.success("Confira seu e-mail para confirmar a conta.");
-        } else {
-          toast.success("Conta criada com sucesso!");
         }
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Não foi possível concluir a operação.";
+      const message = mensagemErro(err);
       toast.error(
         message.includes("Invalid login credentials")
           ? "E-mail ou senha incorretos."
@@ -161,16 +179,56 @@ function AuthPage() {
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               {mode === "signup" && (
-                <Field label="Nome de usuário" icon={User}>
-                  <input
-                    type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="seu.usuario"
-                    autoComplete="username"
-                    className="w-full bg-transparent text-sm text-card-foreground outline-none placeholder:text-muted-foreground"
-                  />
-                </Field>
+                <>
+                  <Field label="Nome completo" icon={User}>
+                    <input
+                      type="text"
+                      required
+                      value={nome}
+                      onChange={(e) => setNome(e.target.value)}
+                      placeholder="Seu nome completo"
+                      autoComplete="name"
+                      className="w-full bg-transparent text-sm text-card-foreground outline-none placeholder:text-muted-foreground"
+                    />
+                  </Field>
+
+                  <Field label="CPF" icon={IdCard}>
+                    <input
+                      type="text"
+                      required
+                      inputMode="numeric"
+                      value={cpf}
+                      onChange={(e) => setCpf(formatarCpf(e.target.value))}
+                      placeholder="000.000.000-00"
+                      className="w-full bg-transparent text-sm text-card-foreground outline-none placeholder:text-muted-foreground"
+                    />
+                  </Field>
+                  {cpfInvalido && <p className="-mt-2 text-xs text-destructive">CPF inválido.</p>}
+
+                  <Field label="CNPJ (opcional)" icon={Landmark}>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={cnpj}
+                      onChange={(e) => setCnpj(formatarCnpj(e.target.value))}
+                      placeholder="00.000.000/0000-00"
+                      className="w-full bg-transparent text-sm text-card-foreground outline-none placeholder:text-muted-foreground"
+                    />
+                  </Field>
+                  {cnpjInvalido && <p className="-mt-2 text-xs text-destructive">CNPJ inválido.</p>}
+
+                  <Field label="Instituição" icon={Building2}>
+                    <input
+                      type="text"
+                      required
+                      value={instituicao}
+                      onChange={(e) => setInstituicao(e.target.value)}
+                      placeholder="Empresa ou instituição em que você trabalha"
+                      autoComplete="organization"
+                      className="w-full bg-transparent text-sm text-card-foreground outline-none placeholder:text-muted-foreground"
+                    />
+                  </Field>
+                </>
               )}
 
               <Field label="E-mail" icon={Mail}>
@@ -200,7 +258,7 @@ function AuthPage() {
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || (mode === "signup" && (cpfInvalido || cnpjInvalido))}
                 className="flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-gold transition-colors hover:bg-primary/90 disabled:opacity-60"
               >
                 {loading && <Loader2 className="size-4 animate-spin" />}

@@ -1,7 +1,9 @@
 /**
  * Validação e hash de CPF.
- * O CPF nunca é gravado em texto claro no banco: só a versão em hash SHA-256.
- * A comparação por hash é suficiente para saber se um CPF já usou o teste grátis.
+ * O perfil guarda o CPF (11 dígitos, visível só para admins, gravado apenas
+ * pelo servidor) e também o hash SHA-256. O hash é o que controla o teste
+ * grátis: a tabela gratuidade_usada guarda só hashes, e eles continuam lá
+ * mesmo se a conta for excluída.
  */
 
 /** Remove caracteres não numéricos. */

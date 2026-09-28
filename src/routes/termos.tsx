@@ -71,6 +71,10 @@ function Termos() {
         <Lista>
           <li>Cada pessoa tem direito a um único simulado gratuito, vinculado ao CPF.</li>
           <li>
+            Os simulados completos (ABT1, ABT2 e treino livre) exigem plano ativo, dentro do prazo
+            de acesso liberado pela ABRACAM.
+          </li>
+          <li>
             O CPF informado deve ser o seu. É proibido usar o CPF de outra pessoa ou criar contas
             adicionais para obter novas gratuidades.
           </li>

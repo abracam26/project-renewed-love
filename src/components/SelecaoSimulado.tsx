@@ -25,10 +25,13 @@ const DESCRICAO: Record<TipoProva, string> = {
 export function SelecaoSimulado({
   token,
   temCpf,
+  liberado,
   simuladoEmAndamentoId,
 }: {
   token: string;
   temCpf: boolean;
+  /** Plano ativo ou admin: libera ABT1, ABT2 e Treino livre. */
+  liberado: boolean;
   simuladoEmAndamentoId: string | null;
 }) {
   const listar = useServerFn(listarConfigsProva);
@@ -82,7 +85,9 @@ export function SelecaoSimulado({
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         {tipos.map((tipo) => {
           const cfg = query.data?.configs.find((c) => c.tipo === tipo);
-          const desabilitado = tipo === "GRATIS" && !temCpf;
+          const semCpf = tipo === "GRATIS" && !temCpf;
+          const semPlano = tipo !== "GRATIS" && !liberado;
+          const desabilitado = semCpf || semPlano;
           const emCarga = carregando === tipo || mut.isPending;
           return (
             <div key={tipo} className="rounded-lg border border-border bg-secondary/30 p-4">
@@ -95,9 +100,14 @@ export function SelecaoSimulado({
                 )}
               </div>
               <p className="mt-1 text-xs text-muted-foreground">{DESCRICAO[tipo]}</p>
-              {desabilitado && (
+              {semCpf && (
                 <p className="mt-2 text-[11px] text-destructive">
-                  Cadastre seu CPF para liberar o teste grátis.
+                  Complete seu cadastro com o CPF para liberar o teste grátis.
+                </p>
+              )}
+              {semPlano && (
+                <p className="mt-2 text-[11px] text-destructive">
+                  Disponível com plano ativo. Fale com a ABRACAM para liberar.
                 </p>
               )}
               <button

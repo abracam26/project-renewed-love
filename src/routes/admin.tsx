@@ -12,6 +12,7 @@ import {
   Wand2,
 } from "lucide-react";
 import { AdminGate } from "@/components/AdminGate";
+import { FeedbackResultados } from "@/components/FeedbackResultados";
 import { PROPORCAO_PROVA, TEMAS } from "@/lib/questoes-schema";
 import { resumoQuestoes } from "@/lib/questoes.functions";
 
@@ -55,6 +56,8 @@ function PainelAdmin({ token }: { token: string }) {
 
   return (
     <div className="space-y-5">
+      <FeedbackResultados token={token} />
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card icone={Users} valor={d ? String(d.usuarios) : null} rotulo="Usuários cadastrados" />
         <Card icone={Database} valor={d ? String(d.total) : null} rotulo="Questões cadastradas" />
@@ -79,6 +82,13 @@ function PainelAdmin({ token }: { token: string }) {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Link
+              to="/admin/usuarios"
+              className="inline-flex items-center gap-2 rounded-md border border-input bg-card px-4 py-2 text-sm font-semibold text-card-foreground hover:bg-accent"
+            >
+              <Users className="size-4 text-primary" />
+              Usuários e planos
+            </Link>
             <Link
               to="/admin/configuracoes"
               className="inline-flex items-center gap-2 rounded-md border border-input bg-card px-4 py-2 text-sm font-semibold text-card-foreground hover:bg-accent"

@@ -13,4 +13,4 @@ export const CONTROLADOR = {
   politicaGeral: "https://abracam.com/politica-de-privacidade-2/",
 } as const;
 
-export const ATUALIZACAO_DOCUMENTOS_LEGAIS = "25 de setembro de 2026";
+export const ATUALIZACAO_DOCUMENTOS_LEGAIS = "28 de setembro de 2026";

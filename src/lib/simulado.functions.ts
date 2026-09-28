@@ -1,12 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { cpfValido, hashCpf, limparCpf } from "@/lib/cpf";
+import { CHAVE_FEEDBACK } from "@/lib/configuracoes-prova.functions";
+import { acessoAtivo } from "@/lib/planos";
 import { LETRAS, type Letra, type QuestaoRow } from "@/lib/questoes-schema";
 
 /**
  * Motor de simulado: iniciar, buscar em andamento, responder, finalizar,
- * abandonar, histórico e relatórios do aluno. Também expõe o cadastro do
- * CPF cifrado com uso do teste grátis controlado.
+ * abandonar, histórico e relatórios do aluno. O teste grátis é controlado
+ * pelo hash do CPF; os simulados completos exigem plano ativo (admins liberados).
  */
 
 const tokenSchema = z.string().min(20, "Sessão inválida. Faça login novamente.");
@@ -34,36 +35,6 @@ function embaralhar<T>(arr: readonly T[]): T[] {
   }
   return out;
 }
-
-// ---------------------------------------------------------------------
-// Cadastro do CPF: valida, cifra e amarra ao perfil do aluno
-// ---------------------------------------------------------------------
-export const salvarCpf = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) =>
-    z.object({ token: tokenSchema, cpf: z.string().min(11).max(14) }).parse(d),
-  )
-  .handler(async ({ data }) => {
-    const { supabaseAdmin, userId } = await contextoAluno(data.token);
-    if (!cpfValido(data.cpf)) throw new Error("CPF inválido.");
-    const sal = process.env["CPF_SAL"] || "abracam-simulador-abt";
-    const hash = await hashCpf(data.cpf, sal);
-
-    // Se este hash já está em outro perfil, bloqueia
-    const { data: existente } = await supabaseAdmin
-      .from("profiles")
-      .select("id")
-      .eq("cpf_hash", hash)
-      .neq("id", userId)
-      .maybeSingle();
-    if (existente) throw new Error("Este CPF já está cadastrado em outra conta.");
-
-    const { error } = await supabaseAdmin
-      .from("profiles")
-      .update({ cpf_hash: hash })
-      .eq("id", userId);
-    if (error) throw new Error(error.message);
-    return { ok: true as const };
-  });
 
 // ---------------------------------------------------------------------
 // Configurações da prova (usadas pelo aluno para saber a duração/nota)
@@ -104,15 +75,34 @@ export const iniciarSimulado = createServerFn({ method: "POST" })
       return { simuladoId: emAndamento.id, retomado: true as const };
     }
 
-    // Se for GRATIS, checa se o CPF já usou
-    if (data.tipo === "GRATIS") {
-      const { data: perfil } = await supabaseAdmin
+    // Cadastro completo e plano ativo (admins sempre liberados)
+    const [{ data: perfil }, { data: papel }] = await Promise.all([
+      supabaseAdmin
         .from("profiles")
-        .select("cpf_hash")
+        .select("cpf, cpf_hash, plano, plano_validade, cadastro_completo_em")
         .eq("id", userId)
-        .single();
+        .maybeSingle(),
+      supabaseAdmin
+        .from("user_roles")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("role", "admin")
+        .maybeSingle(),
+    ]);
+    const admin = Boolean(papel);
+    if (!admin && !(perfil?.cadastro_completo_em && perfil.cpf)) {
+      throw new Error("Complete seu cadastro antes de iniciar um simulado.");
+    }
+    if (data.tipo !== "GRATIS" && !admin && !acessoAtivo(perfil?.plano, perfil?.plano_validade)) {
+      throw new Error(
+        "Seu plano não está ativo. Sem plano, você pode fazer apenas o teste grátis. Fale com a ABRACAM para liberar o acesso.",
+      );
+    }
+
+    // Teste grátis: uma vez por CPF
+    if (data.tipo === "GRATIS") {
       if (!perfil?.cpf_hash) {
-        throw new Error("Cadastre seu CPF antes de fazer o simulado grátis.");
+        throw new Error("Complete seu cadastro com o CPF antes de fazer o teste grátis.");
       }
       const { data: usada } = await supabaseAdmin
         .from("gratuidade_usada")
@@ -394,13 +384,17 @@ export const resultadoSimulado = createServerFn({ method: "POST" })
       .single();
     if (eSim || !sim) throw new Error("Simulado não encontrado.");
 
-    // Configuração para saber se pode mostrar explicação
-    const { data: cfg } = await supabaseAdmin
-      .from("configuracoes_prova")
-      .select("mostrar_explicacao")
-      .eq("tipo", sim.tipo)
-      .single();
-    const mostrarExplicacao = cfg?.mostrar_explicacao ?? false;
+    // Feedback global (admin) e explicação por tipo de prova
+    const [{ data: cfg }, { data: cfgFeedback }] = await Promise.all([
+      supabaseAdmin
+        .from("configuracoes_prova")
+        .select("mostrar_explicacao")
+        .eq("tipo", sim.tipo)
+        .single(),
+      supabaseAdmin.from("configuracoes").select("valor").eq("chave", CHAVE_FEEDBACK).maybeSingle(),
+    ]);
+    const mostrarFeedback = cfgFeedback?.valor !== "inativo";
+    const mostrarExplicacao = mostrarFeedback && (cfg?.mostrar_explicacao ?? false);
 
     const { data: rows, error } = await supabaseAdmin
       .from("simulado_questoes")
@@ -434,18 +428,18 @@ export const resultadoSimulado = createServerFn({ method: "POST" })
         respostaLetra: r.resposta as Letra | null,
         correta: r.correta,
         tempo_ms: r.tempo_ms,
-        // A explicação completa continua condicionada ao flag mostrar_explicacao
-        // (ligado por tipo de prova, no /admin/configuracoes).
+        // Explicação: depende do feedback global e do flag mostrar_explicacao
+        // do tipo de prova (/admin/configuracoes).
         explicacao: mostrarExplicacao ? q.explicacao : null,
-        // A referência ao material vai SEMPRE (mesmo com a explicação desligada),
-        // para o aluno saber onde estudar quando errar uma questão.
-        fonte_norma: q.fonte_norma,
-        fonte_artigo: q.fonte_artigo,
-        fonte_pagina: q.fonte_pagina,
+        // "Onde estudar": vai sempre que o feedback estiver ligado, mesmo com a
+        // explicação desligada. Com o feedback desligado, nem sai do servidor.
+        fonte_norma: mostrarFeedback ? q.fonte_norma : null,
+        fonte_artigo: mostrarFeedback ? q.fonte_artigo : null,
+        fonte_pagina: mostrarFeedback ? q.fonte_pagina : null,
       };
     });
 
-    return { simulado: sim, questoes, mostrarExplicacao };
+    return { simulado: sim, questoes, mostrarExplicacao, mostrarFeedback };
   });
 
 // ---------------------------------------------------------------------
@@ -456,28 +450,39 @@ export const dashboardAluno = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin, userId } = await contextoAluno(data.token);
 
-    const [{ data: stats }, { data: perfil }, { data: recentes }, { data: emAndamento }] =
-      await Promise.all([
-        supabaseAdmin.rpc("estatisticas_aluno", { p_user_id: userId }).single(),
-        supabaseAdmin
-          .from("profiles")
-          .select("username, full_name, cpf_hash, plano, plano_validade")
-          .eq("id", userId)
-          .single(),
-        supabaseAdmin
-          .from("simulados")
-          .select("id, tipo, status, iniciado_em, finalizado_em, acertos, total_questoes, aprovado")
-          .eq("user_id", userId)
-          .eq("status", "finalizado")
-          .order("iniciado_em", { ascending: false })
-          .limit(5),
-        supabaseAdmin
-          .from("simulados")
-          .select("id, tipo, iniciado_em")
-          .eq("user_id", userId)
-          .eq("status", "em_andamento")
-          .maybeSingle(),
-      ]);
+    const [
+      { data: stats },
+      { data: perfil },
+      { data: recentes },
+      { data: emAndamento },
+      { data: papel },
+    ] = await Promise.all([
+      supabaseAdmin.rpc("estatisticas_aluno", { p_user_id: userId }).single(),
+      supabaseAdmin
+        .from("profiles")
+        .select("username, full_name, nome_completo, cpf_hash, plano, plano_validade")
+        .eq("id", userId)
+        .single(),
+      supabaseAdmin
+        .from("simulados")
+        .select("id, tipo, status, iniciado_em, finalizado_em, acertos, total_questoes, aprovado")
+        .eq("user_id", userId)
+        .eq("status", "finalizado")
+        .order("iniciado_em", { ascending: false })
+        .limit(5),
+      supabaseAdmin
+        .from("simulados")
+        .select("id, tipo, iniciado_em")
+        .eq("user_id", userId)
+        .eq("status", "em_andamento")
+        .maybeSingle(),
+      supabaseAdmin
+        .from("user_roles")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("role", "admin")
+        .maybeSingle(),
+    ]);
 
     return {
       stats: stats ?? {
@@ -492,9 +497,12 @@ export const dashboardAluno = createServerFn({ method: "POST" })
       perfil: {
         username: perfil?.username ?? null,
         full_name: perfil?.full_name ?? null,
+        primeiroNome: perfil?.nome_completo?.trim().split(/\s+/)[0] ?? null,
         temCpf: Boolean(perfil?.cpf_hash),
         plano: perfil?.plano ?? "gratis",
         plano_validade: perfil?.plano_validade ?? null,
+        acessoAtivo: acessoAtivo(perfil?.plano, perfil?.plano_validade),
+        isAdmin: Boolean(papel),
       },
       recentes: recentes ?? [],
       emAndamento: emAndamento ?? null,

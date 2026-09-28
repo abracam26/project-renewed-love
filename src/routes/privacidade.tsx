@@ -47,26 +47,29 @@ function Privacidade() {
       <Secao numero={2} titulo="Quais dados coletamos">
         <Lista>
           <li>
-            <strong>Dados de cadastro:</strong> nome de usuário, e-mail e senha. A senha é guardada
-            de forma criptografada pelo serviço de autenticação e não fica acessível à ABRACAM.
+            <strong>Dados de cadastro:</strong> nome completo, CPF, CNPJ (opcional), instituição em
+            que você trabalha, e-mail e senha. A senha é guardada de forma criptografada pelo
+            serviço de autenticação e não fica acessível à ABRACAM.
           </li>
           <li>
             <strong>Login com Google:</strong> se você escolher entrar com sua conta Google,
             recebemos nome, e-mail e foto do perfil, conforme autorizado por você na tela do Google.
             Não temos acesso à sua senha do Google nem a outros dados da sua conta, como e-mails,
-            contatos ou arquivos.
+            contatos ou arquivos. No primeiro acesso, pedimos os demais dados do cadastro.
           </li>
           <li>
-            <strong>CPF:</strong> solicitado somente para liberar o simulado gratuito. Guardamos
-            apenas uma versão cifrada do número, usada para verificar se aquele CPF já utilizou a
-            gratuidade. O CPF não é exibido na plataforma nem compartilhado.
+            <strong>CPF:</strong> identifica sua conta (um cadastro por CPF) e garante um único
+            teste gratuito por pessoa. Ele pode ser consultado apenas pela equipe administrativa da
+            ABRACAM, não é exibido a outros usuários e não é compartilhado. Também guardamos uma
+            versão cifrada do número, usada exclusivamente no controle do teste gratuito.
           </li>
           <li>
             <strong>Dados de uso do simulador:</strong> simulados iniciados e concluídos, respostas
             marcadas, acertos, erros, notas, tempo gasto em cada questão, datas e horários.
           </li>
           <li>
-            <strong>Dados do plano:</strong> tipo de plano e data de validade do acesso.
+            <strong>Dados do plano:</strong> tipo de plano e prazo de acesso, definidos pela
+            ABRACAM.
           </li>
           <li>
             <strong>Dados técnicos:</strong> informações necessárias ao funcionamento e à segurança
@@ -79,8 +82,8 @@ function Privacidade() {
       <Secao numero={3} titulo="Para que usamos os dados">
         <Lista>
           <li>
-            Criar e manter sua conta e permitir o seu acesso (execução de contrato, art. 7º, V, da
-            LGPD).
+            Criar e manter sua conta, identificar você e controlar o seu plano e prazo de acesso
+            (execução de contrato, art. 7º, V, da LGPD).
           </li>
           <li>
             Montar os simulados, evitar a repetição de questões, corrigir as provas e mostrar seu
@@ -145,8 +148,9 @@ function Privacidade() {
             necessário para cumprir obrigações legais ou exercer direitos.
           </li>
           <li>
-            <strong>Versão cifrada do CPF:</strong> mantida mesmo após a exclusão da conta,
-            exclusivamente para impedir que o mesmo CPF utilize a gratuidade novamente.
+            <strong>CPF:</strong> o número é apagado junto com a conta. Só a versão cifrada é
+            mantida após a exclusão, exclusivamente para impedir que o mesmo CPF utilize a
+            gratuidade novamente.
           </li>
           <li>
             <strong>Registros técnicos de acesso:</strong> pelo prazo exigido pela legislação
@@ -187,9 +191,10 @@ function Privacidade() {
       <Secao numero={8} titulo="Segurança">
         <p>
           Adotamos medidas técnicas e administrativas para proteger seus dados, entre elas: conexão
-          criptografada (HTTPS); senha e CPF armazenados de forma cifrada; regras de acesso no banco
-          de dados que impedem um usuário de ver os dados de outro; e acesso às áreas
-          administrativas restrito a pessoas autorizadas pela ABRACAM.
+          criptografada (HTTPS); senha armazenada de forma criptografada; CPF e demais dados de
+          cadastro gravados apenas pelo servidor e visíveis só para a equipe administrativa; regras
+          de acesso no banco de dados que impedem um usuário de ver os dados de outro; e acesso às
+          áreas administrativas restrito a pessoas autorizadas pela ABRACAM.
         </p>
         <p>
           Nenhum sistema é totalmente imune a incidentes. Se ocorrer um incidente de segurança que

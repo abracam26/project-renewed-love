@@ -69,6 +69,39 @@ const salvarSchema = z
     }
   });
 
+// ---------------------------------------------------------------------
+// Interruptor global: feedback nos resultados dos simulados
+// (Parabéns, Onde estudar e explicação). Guardado em configuracoes.
+// ---------------------------------------------------------------------
+export const CHAVE_FEEDBACK = "feedback_resultados";
+
+export const obterFeedbackResultados = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => z.object({ token: tokenSchema }).parse(d))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await exigirAdmin(data.token);
+    const { data: cfg, error } = await supabaseAdmin
+      .from("configuracoes")
+      .select("valor, updated_at")
+      .eq("chave", CHAVE_FEEDBACK)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    return { ativo: cfg?.valor !== "inativo", atualizadoEm: cfg?.updated_at ?? null };
+  });
+
+export const definirFeedbackResultados = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => z.object({ token: tokenSchema, ativo: z.boolean() }).parse(d))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin, user } = await exigirAdmin(data.token);
+    const { error } = await supabaseAdmin.from("configuracoes").upsert({
+      chave: CHAVE_FEEDBACK,
+      valor: data.ativo ? "ativo" : "inativo",
+      updated_by: user.id,
+      updated_at: new Date().toISOString(),
+    });
+    if (error) throw new Error(error.message);
+    return { ativo: data.ativo };
+  });
+
 export const salvarConfiguracaoProva = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => salvarSchema.parse(d))
   .handler(async ({ data }) => {

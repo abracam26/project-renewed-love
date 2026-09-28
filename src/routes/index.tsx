@@ -5,6 +5,8 @@ import {
   Award,
   BookOpen,
   CheckCircle2,
+  CalendarCheck,
+  Lock,
   ChevronRight,
   Clock,
   HelpCircle,
@@ -17,9 +19,9 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useToken } from "@/hooks/use-token";
-import { CadastroCpf } from "@/components/CadastroCpf";
 import { SelecaoSimulado } from "@/components/SelecaoSimulado";
 import { dashboardAluno } from "@/lib/simulado.functions";
+import { formatarDataBR } from "@/lib/planos";
 
 export const Route = createFileRoute("/")({
   ssr: false,
@@ -106,7 +108,7 @@ function Dashboard() {
   }
 
   const d = query.data;
-  const nome = d?.perfil.username ?? d?.perfil.full_name ?? "aluno";
+  const nome = d?.perfil.primeiroNome ?? d?.perfil.username ?? d?.perfil.full_name ?? "aluno";
   const taxa =
     d && d.stats.simulados_completos > 0
       ? Math.round((100 * d.stats.aprovados) / d.stats.simulados_completos)
@@ -150,11 +152,17 @@ function Dashboard() {
             </div>
           )}
 
-          {!d.perfil.temCpf && <CadastroCpf token={token} />}
+          <StatusPlano
+            acessoAtivo={d.perfil.acessoAtivo}
+            isAdmin={d.perfil.isAdmin}
+            plano={d.perfil.plano}
+            validade={d.perfil.plano_validade}
+          />
 
           <SelecaoSimulado
             token={token}
             temCpf={d.perfil.temCpf}
+            liberado={d.perfil.acessoAtivo || d.perfil.isAdmin}
             simuladoEmAndamentoId={d.emAndamento?.id ?? null}
           />
 
@@ -231,6 +239,57 @@ function Dashboard() {
           </section>
         </>
       ) : null}
+    </div>
+  );
+}
+
+function StatusPlano({
+  acessoAtivo,
+  isAdmin,
+  plano,
+  validade,
+}: {
+  acessoAtivo: boolean;
+  isAdmin: boolean;
+  plano: string;
+  validade: string | null;
+}) {
+  if (isAdmin && !acessoAtivo) {
+    return (
+      <div className="panel flex items-center gap-3 p-4 text-sm text-card-foreground">
+        <CalendarCheck className="size-5 shrink-0 text-primary" />
+        Conta de administrador: todos os simulados liberados.
+      </div>
+    );
+  }
+  if (acessoAtivo) {
+    return (
+      <div className="panel flex items-center gap-3 border-success/40 p-4 text-sm text-card-foreground">
+        <CalendarCheck className="size-5 shrink-0 text-success" />
+        <span>
+          Plano {plano === "anual" ? "anual" : "mensal"} ativo, com acesso até{" "}
+          <strong>{formatarDataBR(validade)}</strong>.
+        </span>
+      </div>
+    );
+  }
+  const vencido = (plano === "mensal" || plano === "anual") && validade;
+  return (
+    <div className="panel flex items-start gap-3 border-destructive/40 p-4 text-sm text-card-foreground">
+      <Lock className="mt-0.5 size-5 shrink-0 text-destructive" />
+      <span>
+        {vencido ? (
+          <>
+            Seu acesso venceu em <strong>{formatarDataBR(validade)}</strong>.{" "}
+          </>
+        ) : plano === "inativo" ? (
+          <>Seu acesso está bloqueado. </>
+        ) : (
+          <>Você ainda não tem um plano ativo. </>
+        )}
+        Enquanto isso, está disponível apenas o teste grátis. Para liberar os simulados completos,
+        fale com a ABRACAM.
+      </span>
     </div>
   );
 }

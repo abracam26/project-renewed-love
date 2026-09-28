@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import logoAsset from "@/assets/abracam-logo.png.asset.json";
+import { ContaGate } from "@/components/ContaGate";
 import { useSupabaseSession } from "@/hooks/use-session";
 import { supabase } from "@/integrations/supabase/client";
 import { currentUser } from "@/lib/mock-data";
@@ -133,7 +134,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <main className="flex-1 px-4 py-6 sm:px-6">{children}</main>
+        <main className="flex-1 px-4 py-6 sm:px-6">
+          <ContaGate>{children}</ContaGate>
+        </main>
       </div>
     </div>
   );
