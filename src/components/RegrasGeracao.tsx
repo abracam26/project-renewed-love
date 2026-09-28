@@ -8,8 +8,9 @@ import {
   restaurarRegrasGeracao,
   salvarRegrasGeracao,
 } from "@/lib/ia-geracao.functions";
+import { EXAME_LABEL, type Exame } from "@/lib/questoes-schema";
 
-export function RegrasGeracao({ token }: { token: string }) {
+export function RegrasGeracao({ token, exame }: { token: string; exame: Exame }) {
   const obter = useServerFn(obterRegrasGeracao);
   const salvar = useServerFn(salvarRegrasGeracao);
   const restaurar = useServerFn(restaurarRegrasGeracao);
@@ -18,8 +19,8 @@ export function RegrasGeracao({ token }: { token: string }) {
   const [aberto, setAberto] = useState(false);
 
   const query = useQuery({
-    queryKey: ["admin", "regras"],
-    queryFn: () => obter({ data: { token } }),
+    queryKey: ["admin", "regras", exame],
+    queryFn: () => obter({ data: { token, exame } }),
   });
 
   useEffect(() => {
@@ -27,20 +28,20 @@ export function RegrasGeracao({ token }: { token: string }) {
   }, [query.data]);
 
   const mutSalvar = useMutation({
-    mutationFn: () => salvar({ data: { token, regras: texto } }),
+    mutationFn: () => salvar({ data: { token, exame, regras: texto } }),
     onSuccess: () => {
-      toast.success("Regras de geração salvas.");
-      void queryClient.invalidateQueries({ queryKey: ["admin", "regras"] });
+      toast.success(`Regras de geração do ${EXAME_LABEL[exame]} salvas.`);
+      void queryClient.invalidateQueries({ queryKey: ["admin", "regras", exame] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao salvar."),
   });
 
   const mutRestaurar = useMutation({
-    mutationFn: () => restaurar({ data: { token } }),
+    mutationFn: () => restaurar({ data: { token, exame } }),
     onSuccess: (r) => {
       setTexto(r.regras);
       toast.success("Regras padrão restauradas.");
-      void queryClient.invalidateQueries({ queryKey: ["admin", "regras"] });
+      void queryClient.invalidateQueries({ queryKey: ["admin", "regras", exame] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao restaurar."),
   });
@@ -53,11 +54,11 @@ export function RegrasGeracao({ token }: { token: string }) {
         <div>
           <h2 className="flex items-center gap-2 text-lg font-semibold text-card-foreground">
             <BookOpenCheck className="size-5 text-primary" />
-            Regras de geração
+            Regras de geração · {EXAME_LABEL[exame]}
           </h2>
           <p className="text-xs text-muted-foreground">
-            Instruções que a IA segue em toda geração: fonte, formato da banca, construção de
-            distratores, níveis.{" "}
+            Instruções que a IA segue em toda geração desta prova: fonte, formato da banca,
+            construção de distratores, dificuldade.{" "}
             {query.data?.personalizada
               ? `Versão personalizada, salva em ${new Date(query.data.atualizadaEm ?? "").toLocaleString("pt-BR")}.`
               : "Usando o texto padrão."}

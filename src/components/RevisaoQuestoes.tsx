@@ -5,7 +5,7 @@ import { Check, CheckCheck, ClipboardList, Loader2, Pencil, Trash2 } from "lucid
 import { toast } from "sonner";
 import { aprovarQuestoes, listarPendentes } from "@/lib/ia-geracao.functions";
 import { excluirQuestoes } from "@/lib/questoes.functions";
-import { TEMAS, type QuestaoRow } from "@/lib/questoes-schema";
+import { EXAMES, EXAME_LABEL, TEMAS, type Exame, type QuestaoRow } from "@/lib/questoes-schema";
 import { EditorQuestao } from "@/components/EditorQuestao";
 
 /**
@@ -14,7 +14,7 @@ import { EditorQuestao } from "@/components/EditorQuestao";
  * questões (`GestorQuestoes`). Aqui a modal recebe `permitirAprovar=true`
  * para exibir o botão "Salvar e aprovar".
  */
-export function RevisaoQuestoes({ token }: { token: string }) {
+export function RevisaoQuestoes({ token, exame }: { token: string; exame: Exame }) {
   const [tema, setTema] = useState<number | null>(null);
   const [selecionadas, setSelecionadas] = useState<Set<string>>(new Set());
   const [editando, setEditando] = useState<QuestaoRow | null>(null);
@@ -25,10 +25,13 @@ export function RevisaoQuestoes({ token }: { token: string }) {
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: ["admin", "pendentes", tema],
-    queryFn: () => listar({ data: { token, tema } }),
+    queryKey: ["admin", "pendentes", exame, tema],
+    queryFn: () => listar({ data: { token, exame, tema } }),
   });
   const pendentes = query.data?.questoes ?? [];
+  const outras = EXAMES.filter((x) => x !== exame)
+    .map((x) => ({ exame: x, n: query.data?.pendentesPorExame[x] ?? 0 }))
+    .filter((x) => x.n > 0);
 
   const invalidar = () => queryClient.invalidateQueries({ queryKey: ["admin"] });
 
@@ -72,8 +75,15 @@ export function RevisaoQuestoes({ token }: { token: string }) {
             Fila de revisão
           </h2>
           <p className="text-xs text-muted-foreground">
-            {pendentes.length} questão(ões) aguardando aprovação. Aprove, edite ou descarte. Nada
-            entra em simulado sem aprovação.
+            {pendentes.length} questão(ões) do {EXAME_LABEL[exame]} aguardando aprovação. Aprove,
+            edite ou descarte. Nada entra em simulado sem aprovação.
+            {outras.map((x) => (
+              <span key={x.exame} className="font-medium text-card-foreground">
+                {" "}
+                Há também {x.n} pendente(s) no {EXAME_LABEL[x.exame]}: troque a prova no topo da
+                página.
+              </span>
+            ))}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

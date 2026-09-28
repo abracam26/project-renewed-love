@@ -49,6 +49,12 @@ export type Nivel = (typeof NIVEIS)[number];
 export type Dificuldade = (typeof DIFICULDADES)[number];
 export type Letra = (typeof LETRAS)[number];
 
+/** Mistura de dificuldade pedida à IA quando o admin não fixa uma (a mesma de cada prova). */
+export const MISTURA_GERACAO_IA: Record<Exame, Record<Dificuldade, number>> = {
+  ABT12: { facil: 40, media: 40, dificil: 20 },
+  ABT: { facil: 50, media: 30, dificil: 20 },
+};
+
 const texto = (min: number, campo: string) =>
   z
     .string({ required_error: `${campo} é obrigatório.` })

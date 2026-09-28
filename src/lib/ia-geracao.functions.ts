@@ -3,21 +3,56 @@ import { z } from "zod";
 import { GEMINI_MODEL } from "@/lib/ia.functions";
 import {
   DIFICULDADES,
+  EXAMES,
+  EXAME_LABEL,
   LETRAS,
+  MISTURA_GERACAO_IA,
   NIVEIS,
   TEMAS,
+  exameDoId,
   questaoSchema,
+  type Exame,
   type QuestaoRow,
 } from "@/lib/questoes-schema";
-import { REGRAS_GERACAO_PADRAO } from "@/lib/regras-geracao-padrao";
+import { REGRAS_GERACAO_PADRAO, REGRAS_GERACAO_PADRAO_ABT } from "@/lib/regras-geracao-padrao";
 import type { Database } from "@/integrations/supabase/types";
 
 /**
  * Geração de questões por IA (Gemini), material de referência por tema,
  * regras de geração editáveis e fila de revisão. Todas as funções exigem admin.
+ * Cada prova tem material, regras e sequência de IDs próprios: ABT1/ABT2
+ * ("ABT12", Material de Apoio) e ABT – Correspondentes ("ABT", e-book).
  */
 
 const tokenSchema = z.string().min(20, "Sessão inválida. Faça login novamente.");
+const exameSchema = z.enum(EXAMES).default("ABT12");
+
+const GERACAO_POR_EXAME: Record<
+  Exame,
+  {
+    /** Chave em configuracoes com as regras editadas pelo admin. */
+    chaveRegras: string;
+    regrasPadrao: string;
+    prefixoId: string;
+    versaoMaterial: string;
+    nomeMaterial: string;
+  }
+> = {
+  ABT12: {
+    chaveRegras: "regras_geracao",
+    regrasPadrao: REGRAS_GERACAO_PADRAO,
+    prefixoId: "ABT",
+    versaoMaterial: "junho/2026",
+    nomeMaterial: "MATERIAL DE APOIO",
+  },
+  ABT: {
+    chaveRegras: "regras_geracao_abt",
+    regrasPadrao: REGRAS_GERACAO_PADRAO_ABT,
+    prefixoId: "ABTC",
+    versaoMaterial: "e-book ABT Correspondentes (jul/2026)",
+    nomeMaterial: "E-BOOK DA CERTIFICAÇÃO ABT DOS CORRESPONDENTES",
+  },
+};
 
 async function exigirAdmin(token: string) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -34,59 +69,70 @@ async function exigirAdmin(token: string) {
 }
 
 // ---------------------------------------------------------------------
-// Regras de geração (configuracoes.regras_geracao)
+// Regras de geração (configuracoes.regras_geracao / regras_geracao_abt)
 // ---------------------------------------------------------------------
 export const obterRegrasGeracao = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => z.object({ token: tokenSchema }).parse(d))
+  .inputValidator((d: unknown) => z.object({ token: tokenSchema, exame: exameSchema }).parse(d))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await exigirAdmin(data.token);
+    const cfg = GERACAO_POR_EXAME[data.exame];
     const { data: row } = await supabaseAdmin
       .from("configuracoes")
       .select("valor, updated_at")
-      .eq("chave", "regras_geracao")
+      .eq("chave", cfg.chaveRegras)
       .maybeSingle();
     return {
-      regras: row?.valor ?? REGRAS_GERACAO_PADRAO,
+      regras: row?.valor ?? cfg.regrasPadrao,
       personalizada: Boolean(row),
       atualizadaEm: row?.updated_at ?? null,
-      padrao: REGRAS_GERACAO_PADRAO,
+      padrao: cfg.regrasPadrao,
     };
   });
 
 export const salvarRegrasGeracao = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
-    z.object({ token: tokenSchema, regras: z.string().trim().min(50).max(20000) }).parse(d),
+    z
+      .object({
+        token: tokenSchema,
+        exame: exameSchema,
+        regras: z.string().trim().min(50).max(20000),
+      })
+      .parse(d),
   )
   .handler(async ({ data }) => {
     const { supabaseAdmin, user } = await exigirAdmin(data.token);
-    const { error } = await supabaseAdmin
-      .from("configuracoes")
-      .upsert(
-        { chave: "regras_geracao", valor: data.regras, updated_by: user.id },
-        { onConflict: "chave" },
-      );
+    const { error } = await supabaseAdmin.from("configuracoes").upsert(
+      {
+        chave: GERACAO_POR_EXAME[data.exame].chaveRegras,
+        valor: data.regras,
+        updated_by: user.id,
+      },
+      { onConflict: "chave" },
+    );
     if (error) throw new Error(error.message);
     return { ok: true as const };
   });
 
 export const restaurarRegrasGeracao = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => z.object({ token: tokenSchema }).parse(d))
+  .inputValidator((d: unknown) => z.object({ token: tokenSchema, exame: exameSchema }).parse(d))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await exigirAdmin(data.token);
-    await supabaseAdmin.from("configuracoes").delete().eq("chave", "regras_geracao");
-    return { regras: REGRAS_GERACAO_PADRAO };
+    const cfg = GERACAO_POR_EXAME[data.exame];
+    await supabaseAdmin.from("configuracoes").delete().eq("chave", cfg.chaveRegras);
+    return { regras: cfg.regrasPadrao };
   });
 
 // ---------------------------------------------------------------------
 // Material de referência
 // ---------------------------------------------------------------------
 export const listarMaterial = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => z.object({ token: tokenSchema }).parse(d))
+  .inputValidator((d: unknown) => z.object({ token: tokenSchema, exame: exameSchema }).parse(d))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await exigirAdmin(data.token);
     const { data: rows, error } = await supabaseAdmin
       .from("material_trechos")
       .select("id, tema, ordem, titulo, versao, updated_at, conteudo")
+      .eq("exame", data.exame)
       .order("tema")
       .order("ordem");
     if (error) throw new Error(error.message);
@@ -107,6 +153,7 @@ export const salvarMaterial = createServerFn({ method: "POST" })
     z
       .object({
         token: tokenSchema,
+        exame: exameSchema,
         id: z.string().uuid().nullable().default(null),
         tema: z.number().int().min(1).max(4),
         ordem: z.number().int().min(1).max(50),
@@ -119,6 +166,7 @@ export const salvarMaterial = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await exigirAdmin(data.token);
     const row = {
+      exame: data.exame,
       tema: data.tema,
       ordem: data.ordem,
       titulo: data.titulo,
@@ -126,8 +174,14 @@ export const salvarMaterial = createServerFn({ method: "POST" })
       versao: data.versao,
     };
     const { error } = data.id
-      ? await supabaseAdmin.from("material_trechos").update(row).eq("id", data.id)
-      : await supabaseAdmin.from("material_trechos").upsert(row, { onConflict: "tema,ordem" });
+      ? await supabaseAdmin
+          .from("material_trechos")
+          .update(row)
+          .eq("id", data.id)
+          .eq("exame", data.exame)
+      : await supabaseAdmin
+          .from("material_trechos")
+          .upsert(row, { onConflict: "exame,tema,ordem" });
     if (error) throw new Error(error.message);
     return { ok: true as const };
   });
@@ -146,6 +200,7 @@ export const excluirMaterial = createServerFn({ method: "POST" })
 // ---------------------------------------------------------------------
 const gerarSchema = z.object({
   token: tokenSchema,
+  exame: exameSchema,
   tema: z.number().int().min(1).max(4),
   nivel: z.enum(NIVEIS),
   dificuldade: z.enum(DIFICULDADES).nullable().default(null),
@@ -199,6 +254,25 @@ const GEMINI_RESPONSE_SCHEMA = {
   },
 } as const;
 
+/**
+ * No e-book do ABT – Correspondentes muitos fatos não citam norma, mas todo
+ * trecho tem página: a página é obrigatória e a norma, opcional.
+ */
+const GEMINI_RESPONSE_SCHEMA_ABT = {
+  ...GEMINI_RESPONSE_SCHEMA,
+  items: {
+    ...GEMINI_RESPONSE_SCHEMA.items,
+    required: [
+      "dificuldade",
+      "enunciado",
+      "alternativas",
+      "gabarito",
+      "explicacao",
+      "fonte_pagina",
+    ],
+  },
+} as const;
+
 function normalizar(t: string) {
   return t
     .toLowerCase()
@@ -209,13 +283,19 @@ function normalizar(t: string) {
     .trim();
 }
 
-function proximoSequencial(ids: string[], tema: number) {
+function proximoSequencial(ids: string[], prefixo: string, tema: number) {
+  const padrao = new RegExp(`^${prefixo}-T(\\d)-(\\d+)$`);
   let max = 0;
   for (const id of ids) {
-    const m = /^ABT-T(\d)-(\d+)$/.exec(id);
+    const m = padrao.exec(id);
     if (m && Number(m[1]) === tema) max = Math.max(max, Number(m[2]));
   }
   return max + 1;
+}
+
+/** Números N das marcas [Página N] presentes no material enviado à IA. */
+function paginasDoMaterial(material: string) {
+  return new Set([...material.matchAll(/\[Página (\d+)\]/g)].map((m) => Number(m[1])));
 }
 
 /** Erros do Gemini que costumam passar sozinhos e valem nova tentativa. */
@@ -253,61 +333,85 @@ export const gerarQuestoesIA = createServerFn({ method: "POST" })
 
     const inicio = Date.now();
     const tema = data.tema as 1 | 2 | 3 | 4;
+    const exame = data.exame;
+    const cfgExame = GERACAO_POR_EXAME[exame];
+    const abt = exame === "ABT";
+    // No ABT – Correspondentes não há divisão ABT1/ABT2.
+    const nivel = abt ? "AMBOS" : data.nivel;
+    const mistura = MISTURA_GERACAO_IA[exame];
 
     // 1. Material do tema
     let consulta = supabaseAdmin
       .from("material_trechos")
       .select("id, titulo, conteudo")
+      .eq("exame", exame)
       .eq("tema", tema)
       .order("ordem");
     if (data.trechoIds.length > 0) consulta = consulta.in("id", data.trechoIds);
     const { data: trechos, error: eMat } = await consulta;
     if (eMat) throw new Error(eMat.message);
     if (!trechos || trechos.length === 0) {
-      throw new Error(`Não há material de referência cadastrado para o tema ${tema}.`);
+      throw new Error(
+        `Não há material de referência cadastrado para o tema ${tema} da prova ${EXAME_LABEL[exame]}.`,
+      );
     }
     const material = trechos.map((t) => `### ${t.titulo}\n\n${t.conteudo}`).join("\n\n");
+    const paginasValidas = paginasDoMaterial(material);
 
-    // 2. Regras e questões existentes do tema (para evitar repetição)
+    // 2. Regras e questões existentes (para evitar repetição). O e-book do ABT
+    // repete assuntos entre capítulos, então lá a lista cobre todos os temas.
+    let consultaExistentes = supabaseAdmin
+      .from("questoes")
+      .select("tema, subtema, enunciado, fonte_artigo, fonte_pagina")
+      .eq("exame", exame)
+      .order("created_at", { ascending: false })
+      .limit(abt ? 1000 : 400);
+    if (!abt) consultaExistentes = consultaExistentes.eq("tema", tema);
     const [{ data: cfg }, { data: existentes, error: eEx }, { data: todosIds }] = await Promise.all(
       [
         supabaseAdmin
           .from("configuracoes")
           .select("valor")
-          .eq("chave", "regras_geracao")
+          .eq("chave", cfgExame.chaveRegras)
           .maybeSingle(),
-        supabaseAdmin
-          .from("questoes")
-          .select("subtema, enunciado, fonte_artigo")
-          .eq("exame", "ABT12")
-          .eq("tema", tema)
-          .order("created_at", { ascending: false })
-          .limit(400),
-        supabaseAdmin.from("questoes").select("id").eq("exame", "ABT12").eq("tema", tema),
+        consultaExistentes,
+        supabaseAdmin.from("questoes").select("id").eq("exame", exame).eq("tema", tema),
       ],
     );
     if (eEx) throw new Error(eEx.message);
-    const regras = cfg?.valor ?? REGRAS_GERACAO_PADRAO;
+    const regras = cfg?.valor ?? cfgExame.regrasPadrao;
 
     const listaExistentes = (existentes ?? [])
-      .map((q) => `- ${q.fonte_artigo ?? ""} | ${q.subtema ?? ""} | ${q.enunciado.slice(0, 140)}`)
+      .map((q) =>
+        abt
+          ? `- Tema ${q.tema} | p. ${q.fonte_pagina ?? "?"} | ${q.subtema ?? ""} | ${q.enunciado.slice(0, 140)}`
+          : `- ${q.fonte_artigo ?? ""} | ${q.subtema ?? ""} | ${q.enunciado.slice(0, 140)}`,
+      )
       .join("\n");
 
     const pedido = [
-      `Gere ${data.quantidade} questões inéditas do TEMA ${tema} (${TEMAS[tema]}).`,
-      `Nível: ${data.nivel === "AMBOS" ? "ABT1 e ABT2 (padrão intermediário)" : data.nivel}.`,
+      abt
+        ? `Gere ${data.quantidade} questões inéditas do TEMA ${tema} (${TEMAS[tema]}) da Certificação ABT dos Correspondentes.`
+        : `Gere ${data.quantidade} questões inéditas do TEMA ${tema} (${TEMAS[tema]}).`,
+      ...(abt
+        ? []
+        : [`Nível: ${nivel === "AMBOS" ? "ABT1 e ABT2 (padrão intermediário)" : nivel}.`]),
       data.dificuldade
         ? `Dificuldade: todas "${data.dificuldade}".`
-        : "Dificuldade: misture facil, media e dificil (aprox. 40% / 40% / 20%).",
+        : `Dificuldade: misture facil, media e dificil (aprox. ${mistura.facil}% / ${mistura.media}% / ${mistura.dificil}%).`,
       data.instrucaoExtra ? `Instrução adicional do administrador: ${data.instrucaoExtra}` : "",
       "",
       "Responda SOMENTE com o JSON no formato exigido. O campo fonte_pagina é o número que aparece em [Página N] no material, referente ao trecho do gabarito.",
       "",
       existentes && existentes.length > 0
-        ? `QUESTÕES JÁ EXISTENTES NESTE TEMA (não repita o fato coberto):\n${listaExistentes}`
-        : "Ainda não há questões cadastradas neste tema.",
+        ? abt
+          ? `QUESTÕES JÁ EXISTENTES NESTA PROVA, DE TODOS OS TEMAS (não repita o fato coberto):\n${listaExistentes}`
+          : `QUESTÕES JÁ EXISTENTES NESTE TEMA (não repita o fato coberto):\n${listaExistentes}`
+        : abt
+          ? "Ainda não há questões cadastradas nesta prova."
+          : "Ainda não há questões cadastradas neste tema.",
       "",
-      "MATERIAL DE APOIO (fonte única):",
+      `${cfgExame.nomeMaterial} (fonte única):`,
       material,
     ]
       .filter((l) => l !== undefined)
@@ -320,7 +424,7 @@ export const gerarQuestoesIA = createServerFn({ method: "POST" })
       generationConfig: {
         temperature: 0.7,
         responseMimeType: "application/json",
-        responseSchema: GEMINI_RESPONSE_SCHEMA,
+        responseSchema: abt ? GEMINI_RESPONSE_SCHEMA_ABT : GEMINI_RESPONSE_SCHEMA,
       },
     });
     let res: Response | null = null;
@@ -377,8 +481,9 @@ export const gerarQuestoesIA = createServerFn({ method: "POST" })
       .from("geracoes_ia")
       .insert({
         user_id: user.id,
+        exame,
         tema,
-        nivel: data.nivel,
+        nivel,
         dificuldade: data.dificuldade,
         quantidade: data.quantidade,
         instrucao_extra: data.instrucaoExtra || null,
@@ -395,6 +500,7 @@ export const gerarQuestoesIA = createServerFn({ method: "POST" })
     const vistosNoLote = new Set<string>();
     let seq = proximoSequencial(
       (todosIds ?? []).map((r) => r.id),
+      cfgExame.prefixoId,
       tema,
     );
     const erros: { indice: number; erro: string }[] = [];
@@ -409,12 +515,20 @@ export const gerarQuestoesIA = createServerFn({ method: "POST" })
         });
         return;
       }
-      const id = `ABT-T${tema}-${String(seq).padStart(4, "0")}`;
+      if (abt && (!q.fonte_pagina || !paginasValidas.has(q.fonte_pagina))) {
+        erros.push({
+          indice: i + 1,
+          erro: `Página citada (${q.fonte_pagina ?? "nenhuma"}) não está no trecho do e-book usado.`,
+        });
+        return;
+      }
+      const id = `${cfgExame.prefixoId}-T${tema}-${String(seq).padStart(4, "0")}`;
       const r = questaoSchema.safeParse({
         id,
+        exame,
         tema,
         subtema: q.subtema ?? null,
-        nivel: data.nivel,
+        nivel,
         dificuldade: q.dificuldade,
         enunciado: q.enunciado,
         alternativas: q.alternativas,
@@ -440,7 +554,7 @@ export const gerarQuestoesIA = createServerFn({ method: "POST" })
       const v = r.data;
       rows.push({
         id: v.id,
-        exame: "ABT12",
+        exame,
         tema,
         tema_nome: TEMAS[tema],
         subtema: v.subtema ?? null,
@@ -454,7 +568,7 @@ export const gerarQuestoesIA = createServerFn({ method: "POST" })
         fonte_artigo: v.fonte?.artigo ?? null,
         fonte_pagina: v.fonte?.pagina_material ?? null,
         tags: v.tags,
-        versao_material: "junho/2026",
+        versao_material: cfgExame.versaoMaterial,
         origem: "ia",
         status: "rascunho",
         ativa: false,
@@ -505,7 +619,11 @@ export const gerarQuestoesIA = createServerFn({ method: "POST" })
 export const listarPendentes = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z
-      .object({ token: tokenSchema, tema: z.number().int().min(1).max(4).nullable().default(null) })
+      .object({
+        token: tokenSchema,
+        exame: z.enum(EXAMES).nullable().default(null),
+        tema: z.number().int().min(1).max(4).nullable().default(null),
+      })
       .parse(d),
   )
   .handler(async ({ data }) => {
@@ -516,10 +634,25 @@ export const listarPendentes = createServerFn({ method: "POST" })
       .eq("status", "rascunho")
       .order("created_at", { ascending: false })
       .limit(1000);
+    if (data.exame !== null) q = q.eq("exame", data.exame);
     if (data.tema !== null) q = q.eq("tema", data.tema);
-    const { data: rows, error } = await q;
+    const contar = (exame: Exame) =>
+      supabaseAdmin
+        .from("questoes")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "rascunho")
+        .eq("exame", exame);
+    const [{ data: rows, error }, c12, cAbt] = await Promise.all([
+      q,
+      contar("ABT12"),
+      contar("ABT"),
+    ]);
     if (error) throw new Error(error.message);
-    return { questoes: (rows ?? []) as unknown as QuestaoRow[] };
+    const pendentesPorExame: Record<Exame, number> = {
+      ABT12: c12.count ?? 0,
+      ABT: cAbt.count ?? 0,
+    };
+    return { questoes: (rows ?? []) as unknown as QuestaoRow[], pendentesPorExame };
   });
 
 export const aprovarQuestoes = createServerFn({ method: "POST" })
@@ -558,12 +691,13 @@ export const editarQuestao = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => edicaoSchema.parse(d))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await exigirAdmin(data.token);
-    const tema = Number(data.id.charAt(5));
+    const tema = Number(/-T(\d)-/.exec(data.id)?.[1]);
     const r = questaoSchema.safeParse({
       id: data.id,
       tema,
       subtema: data.subtema,
-      nivel: data.nivel,
+      // No ABT – Correspondentes não há divisão ABT1/ABT2.
+      nivel: exameDoId(data.id) === "ABT" ? "AMBOS" : data.nivel,
       dificuldade: data.dificuldade,
       enunciado: data.enunciado,
       alternativas: data.alternativas,
@@ -601,14 +735,15 @@ export const editarQuestao = createServerFn({ method: "POST" })
   });
 
 export const historicoGeracoes = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => z.object({ token: tokenSchema }).parse(d))
+  .inputValidator((d: unknown) => z.object({ token: tokenSchema, exame: exameSchema }).parse(d))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await exigirAdmin(data.token);
     const { data: rows, error } = await supabaseAdmin
       .from("geracoes_ia")
       .select(
-        "id, tema, nivel, dificuldade, quantidade, geradas, descartadas, modelo, tokens_entrada, tokens_saida, duracao_ms, created_at",
+        "id, exame, tema, nivel, dificuldade, quantidade, geradas, descartadas, modelo, tokens_entrada, tokens_saida, duracao_ms, created_at",
       )
+      .eq("exame", data.exame)
       .order("created_at", { ascending: false })
       .limit(15);
     if (error) throw new Error(error.message);

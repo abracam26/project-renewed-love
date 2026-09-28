@@ -132,6 +132,7 @@ export type Database = {
           dificuldade: string | null
           duracao_ms: number | null
           erros: Json
+          exame: string
           geradas: number
           id: string
           instrucao_extra: string | null
@@ -149,6 +150,7 @@ export type Database = {
           dificuldade?: string | null
           duracao_ms?: number | null
           erros?: Json
+          exame?: string
           geradas?: number
           id?: string
           instrucao_extra?: string | null
@@ -166,6 +168,7 @@ export type Database = {
           dificuldade?: string | null
           duracao_ms?: number | null
           erros?: Json
+          exame?: string
           geradas?: number
           id?: string
           instrucao_extra?: string | null
@@ -282,6 +285,7 @@ export type Database = {
         Row: {
           conteudo: string
           created_at: string
+          exame: string
           id: string
           ordem: number
           tema: number
@@ -292,6 +296,7 @@ export type Database = {
         Insert: {
           conteudo: string
           created_at?: string
+          exame?: string
           id?: string
           ordem?: number
           tema: number
@@ -302,6 +307,7 @@ export type Database = {
         Update: {
           conteudo?: string
           created_at?: string
+          exame?: string
           id?: string
           ordem?: number
           tema?: number

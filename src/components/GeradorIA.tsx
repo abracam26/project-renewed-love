@@ -5,12 +5,27 @@ import { AlertTriangle, Loader2, Sparkles, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { gerarQuestoesIA, historicoGeracoes, listarMaterial } from "@/lib/ia-geracao.functions";
 import { testarConexaoGemini } from "@/lib/ia.functions";
-import { DIFICULDADES, NIVEIS, TEMAS, type Dificuldade, type Nivel } from "@/lib/questoes-schema";
+import {
+  DIFICULDADES,
+  MATERIAL_DO_EXAME,
+  MISTURA_GERACAO_IA,
+  NIVEIS,
+  TEMAS,
+  type Dificuldade,
+  type Exame,
+  type Nivel,
+} from "@/lib/questoes-schema";
 
 const selectClass =
   "rounded-md border border-border bg-background px-2 py-1.5 text-sm text-foreground";
 
-export function GeradorIA({ token }: { token: string }) {
+const EXEMPLO_INSTRUCAO: Record<Exame, string> = {
+  ABT12:
+    'Ex.: "foque em prazos e valores da Resolução BCB 277" ou "evite questões sobre ativos virtuais"',
+  ABT: 'Ex.: "foque nas vedações do correspondente" ou "evite questões sobre segurança de cédulas"',
+};
+
+export function GeradorIA({ token, exame }: { token: string; exame: Exame }) {
   const [tema, setTema] = useState<1 | 2 | 3 | 4>(4);
   const [nivel, setNivel] = useState<Nivel>("AMBOS");
   const [dificuldade, setDificuldade] = useState<Dificuldade | "">("");
@@ -26,23 +41,27 @@ export function GeradorIA({ token }: { token: string }) {
   const queryClient = useQueryClient();
 
   const qMaterial = useQuery({
-    queryKey: ["admin", "material"],
-    queryFn: () => material({ data: { token } }),
+    queryKey: ["admin", "material", exame],
+    queryFn: () => material({ data: { token, exame } }),
   });
   const qHistorico = useQuery({
-    queryKey: ["admin", "geracoes"],
-    queryFn: () => historico({ data: { token } }),
+    queryKey: ["admin", "geracoes", exame],
+    queryFn: () => historico({ data: { token, exame } }),
   });
 
   const trechosDoTema = (qMaterial.data ?? []).filter((t) => t.tema === tema);
+  // No ABT – Correspondentes não há divisão ABT1/ABT2.
+  const temNivel = exame === "ABT12";
+  const mistura = MISTURA_GERACAO_IA[exame];
 
   const mut = useMutation({
     mutationFn: () =>
       gerar({
         data: {
           token,
+          exame,
           tema,
-          nivel,
+          nivel: temNivel ? nivel : "AMBOS",
           dificuldade: dificuldade === "" ? null : dificuldade,
           quantidade,
           instrucaoExtra: instrucao,
@@ -82,8 +101,9 @@ export function GeradorIA({ token }: { token: string }) {
             Gerar questões com IA
           </h2>
           <p className="text-xs text-muted-foreground">
-            A IA usa somente o material de referência do tema e as regras de geração. As questões
-            geradas entram na fila de revisão e só valem para simulados depois de aprovadas.
+            A IA usa somente o {MATERIAL_DO_EXAME[exame]} (material de referência do tema) e as
+            regras de geração desta prova. As questões geradas entram na fila de revisão e só valem
+            para simulados depois de aprovadas.
           </p>
         </div>
         <button
@@ -97,7 +117,9 @@ export function GeradorIA({ token }: { token: string }) {
         </button>
       </div>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div
+        className={`mt-4 grid gap-3 sm:grid-cols-2 ${temNivel ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}
+      >
         <label className="text-xs text-muted-foreground">
           Tema
           <select
@@ -115,20 +137,22 @@ export function GeradorIA({ token }: { token: string }) {
             ))}
           </select>
         </label>
-        <label className="text-xs text-muted-foreground">
-          Nível
-          <select
-            value={nivel}
-            onChange={(e) => setNivel(e.target.value as Nivel)}
-            className={`mt-1 w-full ${selectClass}`}
-          >
-            {NIVEIS.map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
-        </label>
+        {temNivel && (
+          <label className="text-xs text-muted-foreground">
+            Nível
+            <select
+              value={nivel}
+              onChange={(e) => setNivel(e.target.value as Nivel)}
+              className={`mt-1 w-full ${selectClass}`}
+            >
+              {NIVEIS.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <label className="text-xs text-muted-foreground">
           Dificuldade
           <select
@@ -136,7 +160,9 @@ export function GeradorIA({ token }: { token: string }) {
             onChange={(e) => setDificuldade(e.target.value as Dificuldade | "")}
             className={`mt-1 w-full ${selectClass}`}
           >
-            <option value="">Mista (40% fácil, 40% média, 20% difícil)</option>
+            <option value="">
+              Mista ({mistura.facil}% fácil, {mistura.media}% média, {mistura.dificil}% difícil)
+            </option>
             {DIFICULDADES.map((d) => (
               <option key={d} value={d}>
                 {d}
@@ -201,7 +227,7 @@ export function GeradorIA({ token }: { token: string }) {
           onChange={(e) => setInstrucao(e.target.value)}
           rows={2}
           maxLength={1000}
-          placeholder='Ex.: "foque em prazos e valores da Resolução BCB 277" ou "evite questões sobre ativos virtuais"'
+          placeholder={EXEMPLO_INSTRUCAO[exame]}
           className={`mt-1 w-full resize-y ${selectClass}`}
         />
       </label>
@@ -260,7 +286,8 @@ export function GeradorIA({ token }: { token: string }) {
           <ul className="mt-2 space-y-1">
             {qHistorico.data?.geracoes.map((g) => (
               <li key={g.id}>
-                {new Date(g.created_at).toLocaleString("pt-BR")} · Tema {g.tema} · {g.nivel}
+                {new Date(g.created_at).toLocaleString("pt-BR")} · Tema {g.tema}
+                {temNivel ? ` · ${g.nivel}` : ""}
                 {g.dificuldade ? ` · ${g.dificuldade}` : ""} · pedidas {g.quantidade}, geradas{" "}
                 {g.geradas}, descartadas {g.descartadas}
                 {g.duracao_ms ? ` · ${Math.round(g.duracao_ms / 1000)}s` : ""}

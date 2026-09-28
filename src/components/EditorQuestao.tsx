@@ -6,8 +6,10 @@ import { toast } from "sonner";
 import { editarQuestao } from "@/lib/ia-geracao.functions";
 import {
   DIFICULDADES,
+  EXAME_LABEL,
   LETRAS,
   NIVEIS,
+  exameDoId,
   type Dificuldade,
   type Letra,
   type Nivel,
@@ -141,18 +143,27 @@ export function EditorQuestao({
             </DialogHeader>
 
             <div className="grid gap-3 sm:grid-cols-3">
-              <label className="text-xs text-muted-foreground">
-                Nível
-                <select
-                  value={edicao.nivel}
-                  onChange={(e) => setEdicao({ ...edicao, nivel: e.target.value as Nivel })}
-                  className={`mt-1 ${inputClass}`}
-                >
-                  {NIVEIS.map((n) => (
-                    <option key={n}>{n}</option>
-                  ))}
-                </select>
-              </label>
+              {exameDoId(edicao.id) === "ABT" ? (
+                <div className="text-xs text-muted-foreground">
+                  Nível
+                  <p className={`mt-1 ${inputClass} text-muted-foreground`}>
+                    Não se aplica ({EXAME_LABEL.ABT})
+                  </p>
+                </div>
+              ) : (
+                <label className="text-xs text-muted-foreground">
+                  Nível
+                  <select
+                    value={edicao.nivel}
+                    onChange={(e) => setEdicao({ ...edicao, nivel: e.target.value as Nivel })}
+                    className={`mt-1 ${inputClass}`}
+                  >
+                    {NIVEIS.map((n) => (
+                      <option key={n}>{n}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
               <label className="text-xs text-muted-foreground">
                 Dificuldade
                 <select

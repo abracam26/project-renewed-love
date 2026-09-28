@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { BookText, FileUp, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { excluirMaterial, listarMaterial, salvarMaterial } from "@/lib/ia-geracao.functions";
-import { TEMAS } from "@/lib/questoes-schema";
+import { EXAME_LABEL, TEMAS, type Exame } from "@/lib/questoes-schema";
 import {
   Dialog,
   DialogContent,
@@ -25,7 +25,14 @@ type Form = {
   versao: string;
 };
 
-export function MaterialReferencia({ token }: { token: string }) {
+const DESCRICAO: Record<Exame, string> = {
+  ABT12: "Texto do Material de Apoio ABRACAM separado por tema.",
+  ABT: "Texto do e-book da Certificação ABT dos Correspondentes separado por tema (capítulo 3 = tema 1, capítulo 5 = tema 2, capítulo 2 = tema 3, capítulo 4 = tema 4).",
+};
+
+const VERSAO_PADRAO: Record<Exame, string> = { ABT12: "junho/2026", ABT: "jul/2026" };
+
+export function MaterialReferencia({ token, exame }: { token: string; exame: Exame }) {
   const listar = useServerFn(listarMaterial);
   const salvar = useServerFn(salvarMaterial);
   const excluir = useServerFn(excluirMaterial);
@@ -34,13 +41,13 @@ export function MaterialReferencia({ token }: { token: string }) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const query = useQuery({
-    queryKey: ["admin", "material"],
-    queryFn: () => listar({ data: { token } }),
+    queryKey: ["admin", "material", exame],
+    queryFn: () => listar({ data: { token, exame } }),
   });
   const trechos = query.data ?? [];
 
   const mutSalvar = useMutation({
-    mutationFn: (f: Form) => salvar({ data: { token, ...f } }),
+    mutationFn: (f: Form) => salvar({ data: { token, exame, ...f } }),
     onSuccess: () => {
       toast.success("Material salvo.");
       setForm(null);
@@ -60,7 +67,7 @@ export function MaterialReferencia({ token }: { token: string }) {
 
   function novo(tema: 1 | 2 | 3 | 4) {
     const ordem = Math.max(0, ...trechos.filter((t) => t.tema === tema).map((t) => t.ordem)) + 1;
-    setForm({ id: null, tema, ordem, titulo: "", conteudo: "", versao: "junho/2026" });
+    setForm({ id: null, tema, ordem, titulo: "", conteudo: "", versao: VERSAO_PADRAO[exame] });
   }
 
   async function lerTxt(file: File) {
@@ -75,11 +82,12 @@ export function MaterialReferencia({ token }: { token: string }) {
       <div>
         <h2 className="flex items-center gap-2 text-lg font-semibold text-card-foreground">
           <BookText className="size-5 text-primary" />
-          Material de referência
+          Material de referência · {EXAME_LABEL[exame]}
         </h2>
         <p className="text-xs text-muted-foreground">
-          Texto do Material de Apoio ABRACAM separado por tema. É a única fonte que a IA usa. Quando
-          o material for atualizado, substitua o trecho correspondente (texto puro, .txt).
+          {DESCRICAO[exame]} É a única fonte que a IA usa. Quando o material for atualizado,
+          substitua o trecho correspondente (texto puro, .txt). Mantenha as marcas [Página N]: é
+          delas que sai a página citada em cada questão.
         </p>
       </div>
 
@@ -175,7 +183,8 @@ export function MaterialReferencia({ token }: { token: string }) {
             >
               <DialogHeader>
                 <DialogTitle>
-                  {form.id ? "Substituir trecho" : "Novo trecho"} · Tema {form.tema}
+                  {form.id ? "Substituir trecho" : "Novo trecho"} · {EXAME_LABEL[exame]} · Tema{" "}
+                  {form.tema}
                 </DialogTitle>
                 <DialogDescription>
                   Cole o texto ou envie um arquivo .txt. O conteúdo anterior será substituído.
