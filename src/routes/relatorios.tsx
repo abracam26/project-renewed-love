@@ -74,10 +74,10 @@ function Relatorios() {
         <section className="panel space-y-4 p-5">
           <h2 className="text-base font-semibold text-card-foreground">Seus Simulados</h2>
 
-          <div className="rounded-md border border-info/30 bg-info/10 p-4 text-xs">
+          <div className="rounded-md border border-info/30 bg-info/10 p-4 text-xs text-card-foreground">
             <p className="font-semibold text-info">Seus Resultados:</p>
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
-              <ul className="space-y-1 text-foreground">
+              <ul className="space-y-1 text-card-foreground">
                 <li>
                   <span className="font-semibold">Total de simulados:</span> {r.resumo.totalSimulados}
                 </li>
@@ -88,7 +88,7 @@ function Relatorios() {
                   <span className="font-semibold">Simulados completos:</span> {r.resumo.simuladosCompletos}
                 </li>
               </ul>
-              <ul className="space-y-1 text-foreground">
+              <ul className="space-y-1 text-card-foreground">
                 <li>
                   <span className="font-semibold">Melhor resultado:</span> {r.resumo.melhorResultado}
                 </li>
@@ -102,7 +102,7 @@ function Relatorios() {
             </div>
           </div>
 
-          <div className="rounded-md border border-destructive/30 bg-destructive/10 p-4 text-xs text-foreground">
+          <div className="rounded-md border border-destructive/30 bg-destructive/10 p-4 text-xs text-card-foreground">
             <p className="font-semibold text-destructive">Continue praticando!</p>
             <p className="mt-2">
               Sua melhor pontuação foi de <span className="font-semibold">50%</span> (20 acertos de 40).
