@@ -239,12 +239,6 @@ export type Database = {
           show_in_ranking: boolean
           updated_at: string
           username: string | null
-          cadastro_completo_em: string | null
-          cnpj: string | null
-          cpf: string | null
-          email: string | null
-          instituicao: string | null
-          nome_completo: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -257,12 +251,6 @@ export type Database = {
           show_in_ranking?: boolean
           updated_at?: string
           username?: string | null
-          cadastro_completo_em?: string | null
-          cnpj?: string | null
-          cpf?: string | null
-          email?: string | null
-          instituicao?: string | null
-          nome_completo?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -275,12 +263,6 @@ export type Database = {
           show_in_ranking?: boolean
           updated_at?: string
           username?: string | null
-          cadastro_completo_em?: string | null
-          cnpj?: string | null
-          cpf?: string | null
-          email?: string | null
-          instituicao?: string | null
-          nome_completo?: string | null
         }
         Relationships: []
       }
@@ -497,32 +479,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      admin_listar_usuarios: {
-        Args: {
-          p_busca?: string
-          p_filtro?: string
-          p_limite?: number
-          p_offset?: number
-        }
-        Returns: {
-          acesso_ativo: boolean
-          cadastro_completo: boolean
-          cnpj: string | null
-          cpf: string | null
-          criado_em: string
-          email: string | null
-          instituicao: string | null
-          is_admin: boolean
-          nome: string | null
-          plano: string
-          plano_validade: string | null
-          provedor: string
-          simulados: number
-          total: number
-          ultimo_acesso: string | null
-          user_id: string
-        }[]
-      }
       contar_questoes_por_tema: {
         Args: never
         Returns: {
