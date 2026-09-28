@@ -12,8 +12,34 @@ export const TEMAS: Record<1 | 2 | 3 | 4, string> = {
   4: "Correspondente cambial",
 };
 
-/** Proporção oficial da prova (40 questões). */
+/** Proporção oficial da prova ABT1/ABT2 (40 questões). */
 export const PROPORCAO_PROVA: Record<1 | 2 | 3 | 4, number> = { 1: 18, 2: 14, 3: 5, 4: 3 };
+
+/** Proporção do simulado ABT – Correspondentes (20 questões, pelo tamanho dos capítulos do e-book). */
+export const PROPORCAO_PROVA_ABT: Record<1 | 2 | 3 | 4, number> = { 1: 6, 2: 4, 3: 5, 4: 5 };
+
+/**
+ * Bancos de questões: "ABT12" (ABT1/ABT2, Material de Apoio) e "ABT"
+ * (Certificação dos Correspondentes, e-book próprio). O banco sai do ID:
+ * ABT-T1-0001 é ABT1/ABT2; ABTC-T1-0001 é ABT Correspondentes.
+ */
+export const EXAMES = ["ABT12", "ABT"] as const;
+export type Exame = (typeof EXAMES)[number];
+
+export const EXAME_LABEL: Record<Exame, string> = {
+  ABT12: "ABT1/ABT2",
+  ABT: "ABT – Correspondentes",
+};
+
+/** Material de onde saem as questões de cada banco (usado no "Onde estudar"). */
+export const MATERIAL_DO_EXAME: Record<Exame, string> = {
+  ABT12: "Material de Apoio",
+  ABT: "e-book ABT dos Correspondentes",
+};
+
+export function exameDoId(id: string): Exame {
+  return id.startsWith("ABTC-") ? "ABT" : "ABT12";
+}
 
 export const NIVEIS = ["ABT1", "ABT2", "AMBOS"] as const;
 export const DIFICULDADES = ["facil", "media", "dificil"] as const;
@@ -40,9 +66,11 @@ export const questaoSchema = z
       .string()
       .trim()
       .regex(
-        /^ABT-T[1-4]-\d{3,5}$/,
-        "ID deve seguir o padrão ABT-T{tema}-{sequencial}, ex.: ABT-T1-0001.",
+        /^ABTC?-T[1-4]-\d{3,5}$/,
+        "ID deve seguir o padrão ABT-T{tema}-{sequencial} (ABT1/ABT2) ou ABTC-T{tema}-{sequencial} (ABT – Correspondentes), ex.: ABT-T1-0001.",
       ),
+    /** Opcional: se vier, precisa bater com o prefixo do ID. */
+    exame: z.enum(EXAMES).optional(),
     tema: z.coerce.number().int().min(1).max(4),
     tema_nome: z.string().trim().optional(),
     subtema: z.string().trim().max(120).optional().nullable(),
@@ -70,12 +98,19 @@ export const questaoSchema = z
     status: z.enum(["rascunho", "aprovada"]).default("aprovada"),
   })
   .superRefine((q, ctx) => {
-    const temaDoId = Number(q.id.charAt(5));
+    const temaDoId = Number(/-T(\d)-/.exec(q.id)?.[1]);
     if (temaDoId !== q.tema) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["id"],
         message: `O tema do ID (T${temaDoId}) não confere com o campo tema (${q.tema}).`,
+      });
+    }
+    if (q.exame && q.exame !== exameDoId(q.id)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["exame"],
+        message: `O ID ${q.id} é do banco ${EXAME_LABEL[exameDoId(q.id)]}, mas o campo exame diz ${EXAME_LABEL[q.exame]}.`,
       });
     }
     const textos = q.alternativas.map((a) => a.texto.toLowerCase());
@@ -94,6 +129,7 @@ export type Questao = z.output<typeof questaoSchema>;
 /** Linha da tabela public.questoes, como retornada pelo banco. */
 export type QuestaoRow = {
   id: string;
+  exame: Exame;
   tema: number;
   tema_nome: string;
   subtema: string | null;
@@ -124,6 +160,7 @@ export function questaoParaRow(
   const tema = q.tema as 1 | 2 | 3 | 4;
   return {
     id: q.id,
+    exame: exameDoId(q.id),
     tema,
     tema_nome: q.tema_nome && q.tema_nome.length > 0 ? q.tema_nome : TEMAS[tema],
     subtema: q.subtema ?? null,

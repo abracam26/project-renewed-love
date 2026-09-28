@@ -392,6 +392,7 @@ export type Database = {
           tema_nome: string
           updated_at: string
           versao_material: string
+          exame: string
         }
         Insert: {
           alternativas: Json
@@ -416,6 +417,7 @@ export type Database = {
           tema_nome: string
           updated_at?: string
           versao_material?: string
+          exame?: string
         }
         Update: {
           alternativas?: Json
@@ -440,6 +442,7 @@ export type Database = {
           tema_nome?: string
           updated_at?: string
           versao_material?: string
+          exame?: string
         }
         Relationships: [
           {
@@ -641,6 +644,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      contar_questoes_por_exame_tema: {
+        Args: never
+        Returns: {
+          ativas: number
+          exame: string
+          tema: number
+          total: number
+        }[]
+      }
       desempenho_aluno: {
         Args: { p_user_id: string }
         Returns: {

@@ -26,7 +26,7 @@ export const Route = createFileRoute("/planos")({
 // Benefícios reais do sistema (o que cada plano libera de fato)
 const BENEFICIOS_PAGOS = [
   "Simulados ABT1 e ABT2 completos (40 questões, 120 minutos)",
-  "Treino livre de 20 questões",
+  "Simulado ABT – Correspondentes (20 questões, e-book próprio)",
   "Quantos simulados quiser durante a validade",
   "Questões sem repetição até esgotar o banco de cada tema",
   "Relatórios de desempenho por tema e dificuldade",

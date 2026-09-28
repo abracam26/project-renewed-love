@@ -21,6 +21,7 @@ import {
 const LABEL: Record<TipoProva, string> = {
   ABT1: "Simulado ABT1",
   ABT2: "Simulado ABT2",
+  ABT: "Simulado ABT – Correspondentes",
   GRATIS: "Teste grátis",
   LIVRE: "Treino livre",
 };
@@ -28,6 +29,7 @@ const LABEL: Record<TipoProva, string> = {
 const DESCRICAO: Record<TipoProva, string> = {
   ABT1: "40 questões · 120 minutos · nota mínima 70%. Nível para profissionais de operação, compliance, riscos e backoffice.",
   ABT2: "40 questões · 120 minutos · nota mínima 70%. Nível para gestores e diretores; distratores mais sutis.",
+  ABT: "20 questões · 120 minutos · nota mínima 70%. Certificação ABT dos Correspondentes, com questões do e-book da ABRACAM.",
   GRATIS:
     "10 questões · 30 minutos · uma tentativa por CPF. Amostra do simulador para você experimentar.",
   LIVRE:
@@ -42,7 +44,7 @@ export function SelecaoSimulado({
 }: {
   token: string;
   temCpf: boolean;
-  /** Plano ativo ou admin: libera ABT1, ABT2 e Treino livre. */
+  /** Plano ativo ou admin: libera ABT1, ABT2 e ABT – Correspondentes. */
   liberado: boolean;
   /** Há um simulado que ficou em andamento (será encerrado ao iniciar outro). */
   temSimuladoAberto: boolean;
@@ -70,7 +72,7 @@ export function SelecaoSimulado({
     },
   });
 
-  const tipos: TipoProva[] = ["ABT1", "ABT2", "GRATIS", "LIVRE"];
+  const tipos: TipoProva[] = ["ABT1", "ABT2", "ABT", "GRATIS"];
   const cfgConfirmar = confirmar ? query.data?.configs.find((c) => c.tipo === confirmar) : null;
 
   return (

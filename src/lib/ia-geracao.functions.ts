@@ -279,10 +279,11 @@ export const gerarQuestoesIA = createServerFn({ method: "POST" })
         supabaseAdmin
           .from("questoes")
           .select("subtema, enunciado, fonte_artigo")
+          .eq("exame", "ABT12")
           .eq("tema", tema)
           .order("created_at", { ascending: false })
           .limit(400),
-        supabaseAdmin.from("questoes").select("id").eq("tema", tema),
+        supabaseAdmin.from("questoes").select("id").eq("exame", "ABT12").eq("tema", tema),
       ],
     );
     if (eEx) throw new Error(eEx.message);
@@ -439,6 +440,7 @@ export const gerarQuestoesIA = createServerFn({ method: "POST" })
       const v = r.data;
       rows.push({
         id: v.id,
+        exame: "ABT12",
         tema,
         tema_nome: TEMAS[tema],
         subtema: v.subtema ?? null,

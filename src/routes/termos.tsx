@@ -39,7 +39,8 @@ function Termos() {
         <p>
           O Simulador ABT é uma ferramenta de estudo oferecida pela {CONTROLADOR.nome}, CNPJ{" "}
           {CONTROLADOR.cnpj}. Os simulados usam questões elaboradas a partir do Material de Apoio da
-          ABRACAM para as certificações ABT1 e ABT2.
+          ABRACAM para as certificações ABT1 e ABT2 e do e-book da Certificação ABT dos
+          Correspondentes.
         </p>
         <p>
           O simulador não é a prova oficial de certificação. O desempenho nos simulados não garante
@@ -71,8 +72,8 @@ function Termos() {
         <Lista>
           <li>Cada pessoa tem direito a um único simulado gratuito, vinculado ao CPF.</li>
           <li>
-            Os simulados completos (ABT1, ABT2 e treino livre) exigem plano ativo, dentro do prazo
-            de acesso liberado pela ABRACAM.
+            Os simulados completos (ABT1, ABT2 e ABT – Correspondentes) exigem plano ativo, dentro
+            do prazo de acesso liberado pela ABRACAM.
           </li>
           <li>
             O CPF informado deve ser o seu. É proibido usar o CPF de outra pessoa ou criar contas

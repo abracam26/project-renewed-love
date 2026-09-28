@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { AdminGate } from "@/components/AdminGate";
 import { FeedbackResultados } from "@/components/FeedbackResultados";
-import { PROPORCAO_PROVA, TEMAS } from "@/lib/questoes-schema";
+import { PROPORCAO_PROVA, PROPORCAO_PROVA_ABT, TEMAS } from "@/lib/questoes-schema";
 import { resumoQuestoes } from "@/lib/questoes.functions";
 
 export const Route = createFileRoute("/admin")({
@@ -145,29 +145,20 @@ function PainelAdmin({ token }: { token: string }) {
           </div>
         </div>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {([1, 2, 3, 4] as const).map((t) => {
-            const linha = d?.temas.find((x) => x.tema === t);
-            const ativas = linha?.ativas ?? 0;
-            const porProva = PROPORCAO_PROVA[t];
-            const simuladosSemRepetir = Math.floor(ativas / porProva);
-            return (
-              <div key={t} className="rounded-lg border border-border bg-secondary/40 p-4">
-                <p className="text-xs font-medium text-muted-foreground">Tema {t}</p>
-                <p className="text-sm font-semibold text-card-foreground">{TEMAS[t]}</p>
-                <p className="mt-3 text-2xl font-bold text-card-foreground">{d ? ativas : "–"}</p>
-                <p className="text-xs text-muted-foreground">
-                  ativas · {linha?.total ?? 0} no total · {porProva} por prova
-                </p>
-                <p className="mt-2 text-[11px] text-muted-foreground">
-                  {d
-                    ? `${simuladosSemRepetir} simulado${simuladosSemRepetir === 1 ? "" : "s"} sem repetir questão`
-                    : ""}
-                </p>
-              </div>
-            );
-          })}
-        </div>
+        <h3 className="mt-4 text-sm font-semibold text-card-foreground">ABT1 / ABT2</h3>
+        <Cobertura
+          linhas={d?.temas}
+          proporcao={PROPORCAO_PROVA}
+          questoesPorProva={40}
+          carregado={Boolean(d)}
+        />
+        <h3 className="mt-5 text-sm font-semibold text-card-foreground">ABT – Correspondentes</h3>
+        <Cobertura
+          linhas={d?.temasAbt}
+          proporcao={PROPORCAO_PROVA_ABT}
+          questoesPorProva={20}
+          carregado={Boolean(d)}
+        />
       </section>
 
       <section className="panel p-5">
@@ -236,6 +227,46 @@ function Card({
       <Icone className="size-5 text-primary" />
       <p className="mt-3 text-2xl font-bold text-card-foreground">{valor ?? "–"}</p>
       <p className="text-xs text-muted-foreground">{rotulo}</p>
+    </div>
+  );
+}
+
+function Cobertura({
+  linhas,
+  proporcao,
+  questoesPorProva,
+  carregado,
+}: {
+  linhas: { tema: number; total: number; ativas: number }[] | undefined;
+  proporcao: Record<1 | 2 | 3 | 4, number>;
+  questoesPorProva: number;
+  carregado: boolean;
+}) {
+  return (
+    <div className="mt-2 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {([1, 2, 3, 4] as const).map((t) => {
+        const linha = linhas?.find((x) => x.tema === t);
+        const ativas = linha?.ativas ?? 0;
+        const porProva = proporcao[t];
+        const simuladosSemRepetir = Math.floor(ativas / porProva);
+        return (
+          <div key={t} className="rounded-lg border border-border bg-secondary/40 p-4">
+            <p className="text-xs font-medium text-muted-foreground">Tema {t}</p>
+            <p className="text-sm font-semibold text-card-foreground">{TEMAS[t]}</p>
+            <p className="mt-3 text-2xl font-bold text-card-foreground">
+              {carregado ? ativas : "–"}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              ativas · {linha?.total ?? 0} no total · {porProva} de {questoesPorProva} por prova
+            </p>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              {carregado
+                ? `${simuladosSemRepetir} simulado${simuladosSemRepetir === 1 ? "" : "s"} sem repetir questão`
+                : ""}
+            </p>
+          </div>
+        );
+      })}
     </div>
   );
 }

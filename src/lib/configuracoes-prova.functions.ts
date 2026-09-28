@@ -8,7 +8,7 @@ import { z } from "zod";
  */
 
 const tokenSchema = z.string().min(20, "Sessão inválida. Faça login novamente.");
-const TIPOS = ["ABT1", "ABT2", "GRATIS", "LIVRE"] as const;
+const TIPOS = ["ABT1", "ABT2", "ABT", "GRATIS", "LIVRE"] as const;
 
 async function exigirAdmin(token: string) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");

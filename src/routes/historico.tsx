@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Calendar, CheckCircle2, Eye, Loader2, RefreshCw, XCircle } from "lucide-react";
 import { useToken } from "@/hooks/use-token";
+import { nomeProva } from "@/lib/provas";
 import { historicoAluno } from "@/lib/simulado.functions";
 
 export const Route = createFileRoute("/historico")({
@@ -95,7 +96,7 @@ function Historico() {
                     {s.status === "finalizado" && !s.aprovado && (
                       <XCircle className="size-4 text-destructive" />
                     )}
-                    Simulado {s.tipo} — {statusLabel}
+                    Simulado {nomeProva(s.tipo)} — {statusLabel}
                   </h2>
                   <span
                     className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${

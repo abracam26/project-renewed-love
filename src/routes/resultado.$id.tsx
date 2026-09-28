@@ -13,6 +13,8 @@ import {
   XCircle,
 } from "lucide-react";
 import { IdEReporte } from "@/components/ReportarQuestao";
+import { nomeProva } from "@/lib/provas";
+import { MATERIAL_DO_EXAME } from "@/lib/questoes-schema";
 import { useToken } from "@/hooks/use-token";
 import { resultadoSimulado } from "@/lib/simulado.functions";
 import { cn } from "@/lib/utils";
@@ -99,7 +101,7 @@ function Resultado() {
           )}
           <div>
             <h1 className="text-xl font-bold text-card-foreground">
-              {s.aprovado ? "APROVADO" : "REPROVADO"} · Simulado {s.tipo}
+              {s.aprovado ? "APROVADO" : "REPROVADO"} · Simulado {nomeProva(s.tipo)}
             </h1>
             <p className="text-xs text-muted-foreground">
               Nota mínima para aprovação: {s.nota_corte}%.{" "}
@@ -217,7 +219,9 @@ function Resultado() {
                           {[
                             q.fonte_norma,
                             q.fonte_artigo,
-                            q.fonte_pagina ? `página ${q.fonte_pagina} do Material de Apoio` : null,
+                            q.fonte_pagina
+                              ? `página ${q.fonte_pagina} do ${MATERIAL_DO_EXAME[q.exame]}`
+                              : null,
                           ]
                             .filter(Boolean)
                             .join(" · ")}

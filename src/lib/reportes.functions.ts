@@ -48,7 +48,7 @@ export const reportarQuestao = createServerFn({ method: "POST" })
     z
       .object({
         token: tokenSchema,
-        questaoId: z.string().regex(/^ABT-T[1-4]-\d{3,5}$/, "Questão inválida."),
+        questaoId: z.string().regex(/^ABTC?-T[1-4]-\d{3,5}$/, "Questão inválida."),
         simuladoId: z.string().uuid(),
         motivo: z.enum(MOTIVOS_REPORTE),
         descricao: z.string().trim().max(2000, "Descrição muito longa.").default(""),

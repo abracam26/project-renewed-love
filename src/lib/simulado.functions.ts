@@ -17,7 +17,8 @@ import { LETRAS, type Letra, type QuestaoRow } from "@/lib/questoes-schema";
 
 const tokenSchema = z.string().min(20, "Sessão inválida. Faça login novamente.");
 
-const TIPOS_PROVA = ["ABT1", "ABT2", "GRATIS", "LIVRE"] as const;
+/** LIVRE continua no tipo só por causa do histórico: foi substituído pelo ABT. */
+const TIPOS_PROVA = ["ABT1", "ABT2", "ABT", "GRATIS", "LIVRE"] as const;
 export type TipoProva = (typeof TIPOS_PROVA)[number];
 
 const inicioSchema = z.object({
@@ -159,6 +160,9 @@ export const iniciarSimulado = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => inicioSchema.parse(d))
   .handler(async ({ data }) => {
     const { supabaseAdmin, userId } = await contextoAluno(data.token);
+    if (data.tipo === "LIVRE") {
+      throw new Error("O Treino livre foi substituído pelo simulado ABT – Correspondentes.");
+    }
 
     // Cadastro completo e plano ativo (admins sempre liberados)
     const [{ data: perfil }, { data: papel }] = await Promise.all([
@@ -499,7 +503,7 @@ export const resultadoSimulado = createServerFn({ method: "POST" })
     const { data: rows, error } = await supabaseAdmin
       .from("simulado_questoes")
       .select(
-        "id, ordem, ordem_letras, resposta, correta, tempo_ms, questoes(id, tema, tema_nome, enunciado, alternativas, gabarito, explicacao, fonte_norma, fonte_artigo, fonte_pagina)",
+        "id, ordem, ordem_letras, resposta, correta, tempo_ms, questoes(id, exame, tema, tema_nome, enunciado, alternativas, gabarito, explicacao, fonte_norma, fonte_artigo, fonte_pagina)",
       )
       .eq("simulado_id", data.simuladoId)
       .order("ordem")
@@ -521,6 +525,7 @@ export const resultadoSimulado = createServerFn({ method: "POST" })
       return {
         ordem: r.ordem,
         questaoId: q.id,
+        exame: q.exame,
         tema: q.tema,
         tema_nome: q.tema_nome,
         enunciado: q.enunciado,

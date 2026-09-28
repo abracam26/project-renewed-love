@@ -93,7 +93,7 @@ export const relatorioAluno = createServerFn({ method: "POST" })
         finalizados: lista.length,
         completos: completos.length,
         gratis: lista.filter((s) => s.tipo === "GRATIS").length,
-        livres: lista.filter((s) => s.tipo === "LIVRE").length,
+        abt: lista.filter((s) => s.tipo === "ABT").length,
         aprovadosCompletos: completos.filter((s) => s.aprovado).length,
         melhor: melhor
           ? { pct: melhor.pct, acertos: melhor.acertos, total: melhor.total, tipo: melhor.tipo }

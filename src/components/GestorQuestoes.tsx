@@ -15,12 +15,15 @@ import { EditorQuestao } from "@/components/EditorQuestao";
 import { toast } from "sonner";
 import { atualizarQuestao, excluirQuestoes, listarQuestoes } from "@/lib/questoes.functions";
 import {
-  DIFICULDADES,
-  NIVEIS,
-  TEMAS,
   type Dificuldade,
+  DIFICULDADES,
+  type Exame,
+  EXAME_LABEL,
+  EXAMES,
+  NIVEIS,
   type Nivel,
   type QuestaoRow,
+  TEMAS,
 } from "@/lib/questoes-schema";
 import {
   AlertDialog,
@@ -46,6 +49,7 @@ const selectClass =
   "rounded-md border border-border bg-background px-2 py-1.5 text-sm text-foreground";
 
 export function GestorQuestoes({ token }: { token: string }) {
+  const [exame, setExame] = useState<Exame | null>(null);
   const [tema, setTema] = useState<number | null>(null);
   const [nivel, setNivel] = useState<Nivel | null>(null);
   const [dificuldade, setDificuldade] = useState<Dificuldade | null>(null);
@@ -63,11 +67,16 @@ export function GestorQuestoes({ token }: { token: string }) {
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: ["admin", "questoes", { tema, nivel, dificuldade, ativa, buscaAplicada, pagina }],
+    queryKey: [
+      "admin",
+      "questoes",
+      { exame, tema, nivel, dificuldade, ativa, buscaAplicada, pagina },
+    ],
     queryFn: () =>
       listar({
         data: {
           token,
+          exame,
           tema,
           nivel,
           dificuldade,
@@ -146,6 +155,18 @@ export function GestorQuestoes({ token }: { token: string }) {
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
+        <select
+          value={exame ?? ""}
+          onChange={(e) => aplicarFiltro(setExame, (e.target.value || null) as Exame | null)}
+          className={selectClass}
+        >
+          <option value="">Todas as provas</option>
+          {EXAMES.map((x) => (
+            <option key={x} value={x}>
+              {EXAME_LABEL[x]}
+            </option>
+          ))}
+        </select>
         <select
           value={tema ?? ""}
           onChange={(e) => aplicarFiltro(setTema, e.target.value ? Number(e.target.value) : null)}

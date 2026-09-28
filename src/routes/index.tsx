@@ -21,6 +21,7 @@ import { useToken } from "@/hooks/use-token";
 import { SelecaoSimulado } from "@/components/SelecaoSimulado";
 import { dashboardAluno } from "@/lib/simulado.functions";
 import { formatarDataBR } from "@/lib/planos";
+import { nomeProva } from "@/lib/provas";
 
 export const Route = createFileRoute("/")({
   ssr: false,
@@ -197,7 +198,7 @@ function Dashboard() {
                         )}
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-semibold text-card-foreground">
-                            Simulado {s.tipo} em{" "}
+                            Simulado {nomeProva(s.tipo)} em{" "}
                             {new Date(s.iniciado_em).toLocaleDateString("pt-BR")}
                           </span>
                           <span className="block text-xs text-muted-foreground">

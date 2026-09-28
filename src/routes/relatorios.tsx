@@ -233,8 +233,8 @@ function Relatorios() {
                   <p className="text-muted-foreground">ABT1/ABT2</p>
                 </div>
                 <div>
-                  <p className="text-lg font-bold text-card-foreground">{resumo.livres}</p>
-                  <p className="text-muted-foreground">Treinos livres</p>
+                  <p className="text-lg font-bold text-card-foreground">{resumo.abt}</p>
+                  <p className="text-muted-foreground">ABT Corresp.</p>
                 </div>
                 <div>
                   <p className="text-lg font-bold text-card-foreground">{resumo.gratis}</p>

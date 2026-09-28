@@ -9,13 +9,16 @@ import {
 } from "@/lib/configuracoes-prova.functions";
 import { TEMAS } from "@/lib/questoes-schema";
 
-const TIPOS = ["ABT1", "ABT2", "GRATIS", "LIVRE"] as const;
+const TIPOS = ["ABT1", "ABT2", "ABT", "GRATIS", "LIVRE"] as const;
+/** O Treino livre não aparece mais: foi substituído pelo ABT – Correspondentes. */
+const TIPOS_VISIVEIS: readonly Tipo[] = ["ABT1", "ABT2", "ABT", "GRATIS"];
 type Tipo = (typeof TIPOS)[number];
 
 const LABEL: Record<Tipo, string> = {
   ABT1: "Simulado ABT1",
   ABT2: "Simulado ABT2",
   GRATIS: "Teste grátis",
+  ABT: "Simulado ABT – Correspondentes",
   LIVRE: "Treino livre",
 };
 
@@ -112,8 +115,9 @@ export function ConfiguracoesProva({ token }: { token: string }) {
       </p>
 
       <div className="mt-5 space-y-5">
-        {TIPOS.map((tipo) => {
+        {TIPOS_VISIVEIS.map((tipo) => {
           const f = forms[tipo];
+          if (!f) return null;
           const somaDif = f.pct_facil + f.pct_media + f.pct_dificil;
           const somaTema = f.pct_tema_1 + f.pct_tema_2 + f.pct_tema_3 + f.pct_tema_4;
           const podeSalvar = somaDif === 100 && somaTema === 100 && !mut.isPending;

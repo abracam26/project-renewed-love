@@ -2,9 +2,11 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import {
   DIFICULDADES,
+  EXAMES,
   NIVEIS,
   questaoParaRow,
   questaoSchema,
+  type Exame,
   type QuestaoRow,
 } from "@/lib/questoes-schema";
 
@@ -156,7 +158,7 @@ export const resumoQuestoes = createServerFn({ method: "POST" })
       { count: reportesAbertos },
       { count: chamadosAbertos },
     ] = await Promise.all([
-      supabaseAdmin.rpc("contar_questoes_por_tema"),
+      supabaseAdmin.rpc("contar_questoes_por_exame_tema"),
       supabaseAdmin
         .from("importacoes")
         .select(
@@ -181,15 +183,19 @@ export const resumoQuestoes = createServerFn({ method: "POST" })
     if (e1) throw new Error(e1.message);
     if (e2) throw new Error(e2.message);
 
-    const temas = (porTema ?? []).map((t) => ({
+    const linhas = (porTema ?? []).map((t) => ({
+      exame: t.exame as Exame,
       tema: Number(t.tema),
       total: Number(t.total),
       ativas: Number(t.ativas),
     }));
+    const temas = linhas.filter((t) => t.exame === "ABT12");
+    const temasAbt = linhas.filter((t) => t.exame === "ABT");
     return {
       temas,
-      total: temas.reduce((s, t) => s + t.total, 0),
-      ativas: temas.reduce((s, t) => s + t.ativas, 0),
+      temasAbt,
+      total: linhas.reduce((s, t) => s + t.total, 0),
+      ativas: linhas.reduce((s, t) => s + t.ativas, 0),
       usuarios: usuarios ?? 0,
       pendentes: pendentes ?? 0,
       reportesAbertos: reportesAbertos ?? 0,
@@ -203,6 +209,7 @@ export const resumoQuestoes = createServerFn({ method: "POST" })
 // ---------------------------------------------------------------------
 const listarSchema = z.object({
   token: tokenSchema,
+  exame: z.enum(EXAMES).nullable().default(null),
   tema: z.number().int().min(1).max(4).nullable().default(null),
   nivel: z.enum(NIVEIS).nullable().default(null),
   dificuldade: z.enum(DIFICULDADES).nullable().default(null),
@@ -219,6 +226,7 @@ export const listarQuestoes = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await exigirAdmin(data.token);
 
     let q = supabaseAdmin.from("questoes").select("*", { count: "exact" });
+    if (data.exame !== null) q = q.eq("exame", data.exame);
     if (data.tema !== null) q = q.eq("tema", data.tema);
     if (data.nivel !== null) q = q.eq("nivel", data.nivel);
     if (data.dificuldade !== null) q = q.eq("dificuldade", data.dificuldade);
