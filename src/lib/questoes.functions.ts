@@ -153,6 +153,7 @@ export const resumoQuestoes = createServerFn({ method: "POST" })
       { data: importacoes, error: e2 },
       { count: usuarios },
       { count: pendentes },
+      { count: reportesAbertos },
     ] = await Promise.all([
       supabaseAdmin.rpc("contar_questoes_por_tema"),
       supabaseAdmin
@@ -167,6 +168,10 @@ export const resumoQuestoes = createServerFn({ method: "POST" })
         .from("questoes")
         .select("id", { count: "exact", head: true })
         .eq("status", "rascunho"),
+      supabaseAdmin
+        .from("reportes_questao")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "aberto"),
     ]);
     if (e1) throw new Error(e1.message);
     if (e2) throw new Error(e2.message);
@@ -182,6 +187,7 @@ export const resumoQuestoes = createServerFn({ method: "POST" })
       ativas: temas.reduce((s, t) => s + t.ativas, 0),
       usuarios: usuarios ?? 0,
       pendentes: pendentes ?? 0,
+      reportesAbertos: reportesAbertos ?? 0,
       importacoes: importacoes ?? [],
     };
   });

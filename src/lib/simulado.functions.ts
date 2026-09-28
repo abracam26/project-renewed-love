@@ -8,6 +8,11 @@ import { LETRAS, type Letra, type QuestaoRow } from "@/lib/questoes-schema";
  * Motor de simulado: iniciar, buscar em andamento, responder, finalizar,
  * abandonar, histórico e relatórios do aluno. O teste grátis é controlado
  * pelo hash do CPF; os simulados completos exigem plano ativo (admins liberados).
+ *
+ * Não existe "parar e retomar depois": o simulado só continua na aba em que
+ * foi iniciado (sessao_prova, guardada no sessionStorage dessa aba). Abrir em
+ * outra aba, fechar a aba e voltar ou iniciar outro simulado encerra o
+ * anterior como abandonado.
  */
 
 const tokenSchema = z.string().min(20, "Sessão inválida. Faça login novamente.");
@@ -19,6 +24,102 @@ const inicioSchema = z.object({
   token: tokenSchema,
   tipo: z.enum(TIPOS_PROVA),
 });
+
+/** Identificador da aba em que a prova foi iniciada. */
+const sessaoSchema = z.string().uuid().nullable().default(null);
+
+/** Tolerância além do tempo máximo (atraso de rede, relógio do aparelho). */
+const TOLERANCIA_TEMPO_MS = 60 * 1000;
+
+const MSG_ENCERRADO =
+  "Este simulado foi encerrado porque foi aberto fora da tela em que começou. Não é possível retomá-lo.";
+
+type SupabaseAdmin = Awaited<
+  typeof import("@/integrations/supabase/client.server")
+>["supabaseAdmin"];
+
+function tempoEsgotado(sim: { iniciado_em: string; tempo_maximo_min: number }) {
+  const limite =
+    new Date(sim.iniciado_em).getTime() + sim.tempo_maximo_min * 60 * 1000 + TOLERANCIA_TEMPO_MS;
+  return Date.now() > limite;
+}
+
+/** Encerra como abandonados os simulados em andamento do aluno. */
+async function encerrarEmAndamento(
+  supabaseAdmin: SupabaseAdmin,
+  userId: string,
+  opcoes: { somenteVencidos?: boolean; simuladoId?: string } = {},
+) {
+  let consulta = supabaseAdmin
+    .from("simulados")
+    .select("id, iniciado_em, tempo_maximo_min")
+    .eq("user_id", userId)
+    .eq("status", "em_andamento");
+  if (opcoes.simuladoId) consulta = consulta.eq("id", opcoes.simuladoId);
+  const { data: abertos } = await consulta;
+  const alvo = (abertos ?? []).filter((s) => !opcoes.somenteVencidos || tempoEsgotado(s));
+  if (alvo.length === 0) return;
+  await supabaseAdmin
+    .from("simulados")
+    .update({ status: "abandonado", finalizado_em: new Date().toISOString() })
+    .in(
+      "id",
+      alvo.map((s) => s.id),
+    )
+    .eq("status", "em_andamento");
+}
+
+/** Remove o identificador de sessão antes de devolver o simulado ao navegador. */
+function semSessao<T extends { sessao_prova?: string | null }>(sim: T) {
+  const { sessao_prova, ...resto } = sim;
+  void sessao_prova;
+  return resto;
+}
+
+type SimuladoRow = {
+  id: string;
+  iniciado_em: string;
+  total_questoes: number;
+  nota_corte: number;
+};
+
+/** Corrige as respostas e marca o simulado como finalizado. */
+async function corrigirEFinalizar(supabaseAdmin: SupabaseAdmin, sim: SimuladoRow) {
+  const { data: rows, error } = await supabaseAdmin
+    .from("simulado_questoes")
+    .select("id, resposta, questoes(gabarito)")
+    .eq("simulado_id", sim.id);
+  if (error) throw new Error(error.message);
+
+  let acertos = 0;
+  for (const r of rows ?? []) {
+    const g = (r.questoes as unknown as { gabarito: string }).gabarito;
+    const acertou = r.resposta === g;
+    if (acertou) acertos++;
+    await supabaseAdmin
+      .from("simulado_questoes")
+      .update({ correta: r.resposta !== null ? acertou : false })
+      .eq("id", r.id);
+  }
+
+  const pct = (acertos / sim.total_questoes) * 100;
+  const aprovado = pct >= sim.nota_corte;
+  const dur = Math.round((Date.now() - new Date(sim.iniciado_em).getTime()) / 1000);
+  const { data: final, error: eFin } = await supabaseAdmin
+    .from("simulados")
+    .update({
+      status: "finalizado",
+      finalizado_em: new Date().toISOString(),
+      duracao_segundos: dur,
+      acertos,
+      aprovado,
+    })
+    .eq("id", sim.id)
+    .select("*")
+    .single();
+  if (eFin) throw new Error(eFin.message);
+  return final;
+}
 
 async function contextoAluno(token: string) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -58,22 +159,6 @@ export const iniciarSimulado = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => inicioSchema.parse(d))
   .handler(async ({ data }) => {
     const { supabaseAdmin, userId } = await contextoAluno(data.token);
-
-    // Se já existe um em andamento, retorna esse
-    const { data: emAndamento } = await supabaseAdmin
-      .from("simulados")
-      .select("id, tipo, status")
-      .eq("user_id", userId)
-      .eq("status", "em_andamento")
-      .maybeSingle();
-    if (emAndamento) {
-      if (emAndamento.tipo !== data.tipo) {
-        throw new Error(
-          `Você tem um simulado ${emAndamento.tipo} em andamento. Finalize ou abandone antes de começar outro.`,
-        );
-      }
-      return { simuladoId: emAndamento.id, retomado: true as const };
-    }
 
     // Cadastro completo e plano ativo (admins sempre liberados)
     const [{ data: perfil }, { data: papel }] = await Promise.all([
@@ -134,7 +219,11 @@ export const iniciarSimulado = createServerFn({ method: "POST" })
       );
     }
 
-    // Cria o simulado
+    // Não há retomada: um simulado que ficou em andamento é encerrado
+    await encerrarEmAndamento(supabaseAdmin, userId);
+
+    // Cria o simulado, amarrado à aba que o iniciou
+    const sessao = crypto.randomUUID();
     const { data: sim, error: eSim } = await supabaseAdmin
       .from("simulados")
       .insert({
@@ -143,6 +232,7 @@ export const iniciarSimulado = createServerFn({ method: "POST" })
         total_questoes: sorteadas.length,
         nota_corte: cfg.nota_corte,
         tempo_maximo_min: cfg.tempo_maximo_min,
+        sessao_prova: sessao,
       })
       .select("id")
       .single();
@@ -176,7 +266,7 @@ export const iniciarSimulado = createServerFn({ method: "POST" })
       }
     }
 
-    return { simuladoId: sim.id, retomado: false as const };
+    return { simuladoId: sim.id, sessao };
   });
 
 // ---------------------------------------------------------------------
@@ -184,6 +274,8 @@ export const iniciarSimulado = createServerFn({ method: "POST" })
 // ---------------------------------------------------------------------
 export type QuestaoDoSimulado = {
   simuladoQuestaoId: string;
+  /** ID da questão no banco (ex.: ABT-T1-1023), exibido de forma discreta. */
+  questaoId: string;
   ordem: number;
   enunciado: string;
   tema: number;
@@ -194,7 +286,7 @@ export type QuestaoDoSimulado = {
 
 export const carregarSimulado = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
-    z.object({ token: tokenSchema, simuladoId: z.string().uuid() }).parse(d),
+    z.object({ token: tokenSchema, simuladoId: z.string().uuid(), sessao: sessaoSchema }).parse(d),
   )
   .handler(async ({ data }) => {
     const { supabaseAdmin, userId } = await contextoAluno(data.token);
@@ -207,6 +299,28 @@ export const carregarSimulado = createServerFn({ method: "POST" })
       .single();
     if (eSim || !sim) throw new Error("Simulado não encontrado.");
 
+    if (sim.status === "em_andamento") {
+      // Aberto fora da aba em que começou (outra aba, aba fechada e reaberta):
+      // o aluno saiu da prova, então ela é encerrada.
+      if (!data.sessao || data.sessao !== sim.sessao_prova) {
+        await encerrarEmAndamento(supabaseAdmin, userId, { simuladoId: sim.id });
+        return {
+          simulado: semSessao({ ...sim, status: "abandonado" }),
+          questoes: [] as QuestaoDoSimulado[],
+          perdido: true,
+        };
+      }
+      // Tempo esgotado sem finalizar (ex.: aparelho suspenso): corrige o que foi respondido
+      if (tempoEsgotado(sim)) {
+        const final = await corrigirEFinalizar(supabaseAdmin, sim);
+        return {
+          simulado: semSessao(final),
+          questoes: [] as QuestaoDoSimulado[],
+          perdido: false,
+        };
+      }
+    }
+
     const { data: rows, error } = await supabaseAdmin
       .from("simulado_questoes")
       .select(
@@ -218,6 +332,7 @@ export const carregarSimulado = createServerFn({ method: "POST" })
 
     const questoes: QuestaoDoSimulado[] = (rows ?? []).map((r) => {
       const q = r.questoes as unknown as {
+        id: string;
         enunciado: string;
         tema: number;
         tema_nome: string;
@@ -230,6 +345,7 @@ export const carregarSimulado = createServerFn({ method: "POST" })
       });
       return {
         simuladoQuestaoId: r.id,
+        questaoId: q.id,
         ordem: r.ordem,
         enunciado: q.enunciado,
         tema: q.tema,
@@ -239,7 +355,7 @@ export const carregarSimulado = createServerFn({ method: "POST" })
       };
     });
 
-    return { simulado: sim, questoes };
+    return { simulado: semSessao(sim), questoes, perdido: false };
   });
 
 // ---------------------------------------------------------------------
@@ -252,6 +368,7 @@ export const responderQuestao = createServerFn({ method: "POST" })
         token: tokenSchema,
         simuladoQuestaoId: z.string().uuid(),
         posicao: z.number().int().min(0).max(3).nullable(),
+        sessao: sessaoSchema,
         tempoMs: z
           .number()
           .int()
@@ -267,13 +384,26 @@ export const responderQuestao = createServerFn({ method: "POST" })
     // Confirma dono
     const { data: sq, error } = await supabaseAdmin
       .from("simulado_questoes")
-      .select("id, simulado_id, ordem_letras, simulados!inner(user_id, status)")
+      .select(
+        "id, simulado_id, ordem_letras, simulados!inner(user_id, status, sessao_prova, iniciado_em, tempo_maximo_min)",
+      )
       .eq("id", data.simuladoQuestaoId)
       .single();
     if (error || !sq) throw new Error("Questão não encontrada.");
-    const s = sq.simulados as unknown as { user_id: string; status: string };
+    const s = sq.simulados as unknown as {
+      user_id: string;
+      status: string;
+      sessao_prova: string | null;
+      iniciado_em: string;
+      tempo_maximo_min: number;
+    };
     if (s.user_id !== userId) throw new Error("Simulado não pertence a você.");
-    if (s.status !== "em_andamento") throw new Error("Este simulado já foi finalizado.");
+    if (s.status !== "em_andamento") throw new Error(MSG_ENCERRADO);
+    if (!data.sessao || data.sessao !== s.sessao_prova) {
+      await encerrarEmAndamento(supabaseAdmin, userId, { simuladoId: sq.simulado_id });
+      throw new Error(MSG_ENCERRADO);
+    }
+    if (tempoEsgotado(s)) throw new Error("Tempo esgotado. O simulado será finalizado.");
 
     const letra = data.posicao === null ? null : (sq.ordem_letras[data.posicao] ?? null);
     const { error: eUpd } = await supabaseAdmin
@@ -293,7 +423,7 @@ export const responderQuestao = createServerFn({ method: "POST" })
 // ---------------------------------------------------------------------
 export const finalizarSimulado = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
-    z.object({ token: tokenSchema, simuladoId: z.string().uuid() }).parse(d),
+    z.object({ token: tokenSchema, simuladoId: z.string().uuid(), sessao: sessaoSchema }).parse(d),
   )
   .handler(async ({ data }) => {
     const { supabaseAdmin, userId } = await contextoAluno(data.token);
@@ -306,45 +436,15 @@ export const finalizarSimulado = createServerFn({ method: "POST" })
       .single();
     if (eSim || !sim) throw new Error("Simulado não encontrado.");
     if (sim.status !== "em_andamento") {
-      return { simulado: sim, jaEstavaFinalizado: true as const };
+      return { simulado: semSessao(sim), jaEstavaFinalizado: true as const };
+    }
+    if (!data.sessao || data.sessao !== sim.sessao_prova) {
+      await encerrarEmAndamento(supabaseAdmin, userId, { simuladoId: sim.id });
+      throw new Error(MSG_ENCERRADO);
     }
 
-    // Corrige cada questão
-    const { data: rows, error } = await supabaseAdmin
-      .from("simulado_questoes")
-      .select("id, resposta, questoes(gabarito)")
-      .eq("simulado_id", data.simuladoId);
-    if (error) throw new Error(error.message);
-
-    let acertos = 0;
-    for (const r of rows ?? []) {
-      const g = (r.questoes as unknown as { gabarito: string }).gabarito;
-      const acertou = r.resposta === g;
-      if (acertou) acertos++;
-      await supabaseAdmin
-        .from("simulado_questoes")
-        .update({ correta: r.resposta !== null ? acertou : false })
-        .eq("id", r.id);
-    }
-
-    const pct = (acertos / sim.total_questoes) * 100;
-    const aprovado = pct >= sim.nota_corte;
-    const dur = Math.round((Date.now() - new Date(sim.iniciado_em).getTime()) / 1000);
-    const { data: final, error: eFin } = await supabaseAdmin
-      .from("simulados")
-      .update({
-        status: "finalizado",
-        finalizado_em: new Date().toISOString(),
-        duracao_segundos: dur,
-        acertos,
-        aprovado,
-      })
-      .eq("id", data.simuladoId)
-      .select("*")
-      .single();
-    if (eFin) throw new Error(eFin.message);
-
-    return { simulado: final, jaEstavaFinalizado: false as const };
+    const final = await corrigirEFinalizar(supabaseAdmin, sim);
+    return { simulado: semSessao(final), jaEstavaFinalizado: false as const };
   });
 
 // ---------------------------------------------------------------------
@@ -420,6 +520,7 @@ export const resultadoSimulado = createServerFn({ method: "POST" })
       const q = r.questoes;
       return {
         ordem: r.ordem,
+        questaoId: q.id,
         tema: q.tema,
         tema_nome: q.tema_nome,
         enunciado: q.enunciado,
@@ -439,7 +540,7 @@ export const resultadoSimulado = createServerFn({ method: "POST" })
       };
     });
 
-    return { simulado: sim, questoes, mostrarExplicacao, mostrarFeedback };
+    return { simulado: semSessao(sim), questoes, mostrarExplicacao, mostrarFeedback };
   });
 
 // ---------------------------------------------------------------------
@@ -449,6 +550,7 @@ export const dashboardAluno = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ token: tokenSchema }).parse(d))
   .handler(async ({ data }) => {
     const { supabaseAdmin, userId } = await contextoAluno(data.token);
+    await encerrarEmAndamento(supabaseAdmin, userId, { somenteVencidos: true });
 
     const [
       { data: stats },
@@ -513,6 +615,7 @@ export const historicoAluno = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ token: tokenSchema }).parse(d))
   .handler(async ({ data }) => {
     const { supabaseAdmin, userId } = await contextoAluno(data.token);
+    await encerrarEmAndamento(supabaseAdmin, userId, { somenteVencidos: true });
     const { data: rows, error } = await supabaseAdmin
       .from("simulados")
       .select("*")

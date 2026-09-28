@@ -11,7 +11,6 @@ import {
   Clock,
   HelpCircle,
   Loader2,
-  Play,
   Target,
   TrendingUp,
   Trophy,
@@ -119,9 +118,7 @@ function Dashboard() {
       <section className="gold-banner rounded-lg px-6 py-5">
         <h1 className="text-xl font-bold">Olá, {nome}! 👋</h1>
         <p className="mt-1 text-sm opacity-90">
-          {d?.emAndamento
-            ? "Você tem um simulado em andamento. Retome quando quiser."
-            : "Bem-vindo ao seu painel. Continue se preparando para o exame."}
+          Bem-vindo ao seu painel. Continue se preparando para o exame.
         </p>
       </section>
 
@@ -135,23 +132,6 @@ function Dashboard() {
         </div>
       ) : d ? (
         <>
-          {d.emAndamento && (
-            <div className="panel flex flex-wrap items-center justify-between gap-3 border-info/50 p-4">
-              <p className="text-sm">
-                <Play className="mr-2 inline size-4 text-primary" />
-                Simulado {d.emAndamento.tipo} iniciado em{" "}
-                {new Date(d.emAndamento.iniciado_em).toLocaleString("pt-BR")}
-              </p>
-              <Link
-                to="/prova/$id"
-                params={{ id: d.emAndamento.id }}
-                className="rounded-md bg-primary px-4 py-1.5 text-sm font-semibold text-primary-foreground shadow-gold"
-              >
-                Retomar
-              </Link>
-            </div>
-          )}
-
           <StatusPlano
             acessoAtivo={d.perfil.acessoAtivo}
             isAdmin={d.perfil.isAdmin}
@@ -163,7 +143,7 @@ function Dashboard() {
             token={token}
             temCpf={d.perfil.temCpf}
             liberado={d.perfil.acessoAtivo || d.perfil.isAdmin}
-            simuladoEmAndamentoId={d.emAndamento?.id ?? null}
+            temSimuladoAberto={Boolean(d.emAndamento)}
           />
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
