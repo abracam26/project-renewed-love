@@ -54,17 +54,18 @@ function Perfil() {
               </p>
             </div>
             <button
+              type="button"
               role="switch"
               aria-checked={ranking}
               aria-label="Participar do ranking"
               onClick={() => setRanking((v) => !v)}
-              className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
-                ranking ? "bg-primary" : "bg-muted"
+              className={`relative h-7 w-12 shrink-0 rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card ${
+                ranking ? "border-primary bg-primary" : "border-muted-foreground/60 bg-secondary"
               }`}
             >
               <span
-                className={`absolute top-0.5 size-5 rounded-full bg-card transition-all ${
-                  ranking ? "left-[1.375rem]" : "left-0.5"
+                className={`absolute top-0.5 size-5 rounded-full bg-primary-foreground shadow-sm transition-all ${
+                  ranking ? "left-[1.625rem]" : "left-0.5"
                 }`}
               />
             </button>

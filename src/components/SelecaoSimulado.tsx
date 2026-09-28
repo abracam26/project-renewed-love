@@ -65,7 +65,7 @@ export function SelecaoSimulado({
 
       {simuladoEmAndamentoId && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-info/30 bg-info/10 p-4 text-sm">
-          <p className="text-foreground">
+          <p className="text-card-foreground">
             Você tem um simulado em andamento. Retome de onde parou ou finalize antes de iniciar
             outro.
           </p>
