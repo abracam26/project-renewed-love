@@ -230,10 +230,16 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          cadastro_completo_em: string | null
+          cnpj: string | null
+          cpf: string | null
           cpf_hash: string | null
           created_at: string
+          email: string | null
           full_name: string | null
           id: string
+          instituicao: string | null
+          nome_completo: string | null
           plano: string
           plano_validade: string | null
           show_in_ranking: boolean
@@ -242,10 +248,16 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          cadastro_completo_em?: string | null
+          cnpj?: string | null
+          cpf?: string | null
           cpf_hash?: string | null
           created_at?: string
+          email?: string | null
           full_name?: string | null
           id: string
+          instituicao?: string | null
+          nome_completo?: string | null
           plano?: string
           plano_validade?: string | null
           show_in_ranking?: boolean
@@ -254,10 +266,16 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          cadastro_completo_em?: string | null
+          cnpj?: string | null
+          cpf?: string | null
           cpf_hash?: string | null
           created_at?: string
+          email?: string | null
           full_name?: string | null
           id?: string
+          instituicao?: string | null
+          nome_completo?: string | null
           plano?: string
           plano_validade?: string | null
           show_in_ranking?: boolean
@@ -349,6 +367,63 @@ export type Database = {
           },
         ]
       }
+      reportes_questao: {
+        Row: {
+          created_at: string
+          descricao: string | null
+          id: string
+          motivo: string
+          questao_id: string
+          resolvido_em: string | null
+          resolvido_por: string | null
+          resposta_admin: string | null
+          simulado_id: string | null
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          motivo: string
+          questao_id: string
+          resolvido_em?: string | null
+          resolvido_por?: string | null
+          resposta_admin?: string | null
+          simulado_id?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          motivo?: string
+          questao_id?: string
+          resolvido_em?: string | null
+          resolvido_por?: string | null
+          resposta_admin?: string | null
+          simulado_id?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reportes_questao_questao_id_fkey"
+            columns: ["questao_id"]
+            isOneToOne: false
+            referencedRelation: "questoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reportes_questao_simulado_id_fkey"
+            columns: ["simulado_id"]
+            isOneToOne: false
+            referencedRelation: "simulados"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       simulado_questoes: {
         Row: {
           correta: boolean | null
@@ -409,6 +484,7 @@ export type Database = {
           id: string
           iniciado_em: string
           nota_corte: number
+          sessao_prova: string | null
           status: string
           tempo_maximo_min: number
           tipo: string
@@ -423,6 +499,7 @@ export type Database = {
           id?: string
           iniciado_em?: string
           nota_corte: number
+          sessao_prova?: string | null
           status?: string
           tempo_maximo_min: number
           tipo: string
@@ -437,6 +514,7 @@ export type Database = {
           id?: string
           iniciado_em?: string
           nota_corte?: number
+          sessao_prova?: string | null
           status?: string
           tempo_maximo_min?: number
           tipo?: string
@@ -479,6 +557,32 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_listar_usuarios: {
+        Args: {
+          p_busca?: string
+          p_filtro?: string
+          p_limite?: number
+          p_offset?: number
+        }
+        Returns: {
+          acesso_ativo: boolean
+          cadastro_completo: boolean
+          cnpj: string
+          cpf: string
+          criado_em: string
+          email: string
+          instituicao: string
+          is_admin: boolean
+          nome: string
+          plano: string
+          plano_validade: string
+          provedor: string
+          simulados: number
+          total: number
+          ultimo_acesso: string
+          user_id: string
+        }[]
+      }
       contar_questoes_por_tema: {
         Args: never
         Returns: {
