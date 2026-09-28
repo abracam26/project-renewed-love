@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      chamados_suporte: {
+        Row: {
+          categoria: string
+          created_at: string
+          id: string
+          mensagem: string
+          respondido_em: string | null
+          respondido_por: string | null
+          resposta: string | null
+          status: string
+          titulo: string
+          user_id: string
+        }
+        Insert: {
+          categoria: string
+          created_at?: string
+          id?: string
+          mensagem: string
+          respondido_em?: string | null
+          respondido_por?: string | null
+          resposta?: string | null
+          status?: string
+          titulo: string
+          user_id: string
+        }
+        Update: {
+          categoria?: string
+          created_at?: string
+          id?: string
+          mensagem?: string
+          respondido_em?: string | null
+          respondido_por?: string | null
+          resposta?: string | null
+          status?: string
+          titulo?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       configuracoes: {
         Row: {
           chave: string
@@ -191,6 +230,51 @@ export type Database = {
           total_inseridas?: number
           total_lidas?: number
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      materiais: {
+        Row: {
+          arquivo_path: string
+          ativo: boolean
+          categoria: string
+          created_at: string
+          created_by: string | null
+          descricao: string | null
+          downloads: number
+          id: string
+          nome_arquivo: string
+          ordem: number
+          tamanho_bytes: number
+          titulo: string
+        }
+        Insert: {
+          arquivo_path: string
+          ativo?: boolean
+          categoria?: string
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          downloads?: number
+          id?: string
+          nome_arquivo: string
+          ordem?: number
+          tamanho_bytes: number
+          titulo: string
+        }
+        Update: {
+          arquivo_path?: string
+          ativo?: boolean
+          categoria?: string
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          downloads?: number
+          id?: string
+          nome_arquivo?: string
+          ordem?: number
+          tamanho_bytes?: number
+          titulo?: string
         }
         Relationships: []
       }
@@ -557,6 +641,26 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      desempenho_aluno: {
+        Args: { p_user_id: string }
+        Returns: {
+          acertos: number
+          chave: string
+          dimensao: string
+          total: number
+        }[]
+      }
+      ranking_alunos: {
+        Args: { p_dias?: number }
+        Returns: {
+          media_pct: number
+          melhor_pct: number
+          nome: string
+          posicao: number
+          simulados: number
+          user_id: string
+        }[]
+      }
       admin_listar_usuarios: {
         Args: {
           p_busca?: string

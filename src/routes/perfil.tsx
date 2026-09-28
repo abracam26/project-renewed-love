@@ -159,8 +159,8 @@ function Perfil() {
               <p className="text-sm font-medium text-card-foreground">Participar do Ranking</p>
               <p className="text-xs text-muted-foreground">
                 {ranking
-                  ? "Quando o ranking estiver disponível, seu nome de usuário e seu desempenho aparecerão nele."
-                  : "Seus resultados serão mantidos privados."}
+                  ? "Você aparece no ranking da página Relatórios, com o primeiro nome, a inicial do sobrenome e a sua média nos simulados ABT1 e ABT2."
+                  : "Você não aparece no ranking. Ative para participar."}
               </p>
             </div>
             <button

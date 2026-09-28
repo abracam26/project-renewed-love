@@ -4,8 +4,10 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   ClipboardList,
   Database,
+  FileText,
   FileUp,
   Flag,
+  MessageSquare,
   Loader2,
   Settings,
   Settings2,
@@ -83,6 +85,24 @@ function PainelAdmin({ token }: { token: string }) {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Link
+              to="/admin/suporte"
+              className={`inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-semibold hover:bg-accent ${
+                d && d.chamadosAbertos > 0
+                  ? "border-destructive/60 text-destructive"
+                  : "border-input bg-card text-card-foreground"
+              }`}
+            >
+              <MessageSquare className="size-4" />
+              Suporte{d && d.chamadosAbertos > 0 ? ` (${d.chamadosAbertos})` : ""}
+            </Link>
+            <Link
+              to="/admin/materiais"
+              className="inline-flex items-center gap-2 rounded-md border border-input bg-card px-4 py-2 text-sm font-semibold text-card-foreground hover:bg-accent"
+            >
+              <FileText className="size-4 text-primary" />
+              Materiais (PDFs)
+            </Link>
             <Link
               to="/admin/reportes"
               className={`inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-semibold hover:bg-accent ${

@@ -72,6 +72,10 @@ function Privacidade() {
             ABRACAM.
           </li>
           <li>
+            <strong>Suporte e reportes:</strong> as mensagens que você envia pelos chamados de
+            suporte e pelos reportes de erro em questões, com as respostas da equipe.
+          </li>
+          <li>
             <strong>Dados técnicos:</strong> informações necessárias ao funcionamento e à segurança
             do serviço, como endereço IP, data e hora de acesso e registros técnicos de erro,
             gerados automaticamente pelos provedores de infraestrutura.
@@ -115,9 +119,10 @@ function Privacidade() {
 
       <Secao numero={4} titulo="Ranking de desempenho">
         <p>
-          Quando o ranking estiver disponível, ele exibirá apenas o seu nome de usuário e o seu
-          desempenho nos simulados, nunca o seu e-mail ou CPF. Você poderá desativar sua
-          participação a qualquer momento na página Perfil.
+          A participação no ranking da página Relatórios é opcional e fica desligada até você
+          ativá-la na página Perfil. Quem participa aparece para os demais alunos apenas com o
+          primeiro nome, a inicial do sobrenome e a média nos simulados, nunca com e-mail ou CPF.
+          Você pode desativar a participação a qualquer momento.
         </p>
       </Secao>
 

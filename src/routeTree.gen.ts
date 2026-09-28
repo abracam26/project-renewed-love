@@ -22,8 +22,10 @@ import { Route as SuporteRouteImport } from './routes/suporte'
 import { Route as TermosRouteImport } from './routes/termos'
 import { Route as AdminConfiguracoesRouteImport } from './routes/admin_.configuracoes'
 import { Route as AdminGerarRouteImport } from './routes/admin_.gerar'
+import { Route as AdminMateriaisRouteImport } from './routes/admin_.materiais'
 import { Route as AdminQuestoesRouteImport } from './routes/admin_.questoes'
 import { Route as AdminReportesRouteImport } from './routes/admin_.reportes'
+import { Route as AdminSuporteRouteImport } from './routes/admin_.suporte'
 import { Route as AdminUsuariosRouteImport } from './routes/admin_.usuarios'
 import { Route as ProvaIdRouteImport } from './routes/prova.$id'
 import { Route as ResultadoIdRouteImport } from './routes/resultado.$id'
@@ -93,6 +95,11 @@ const AdminGerarRoute = AdminGerarRouteImport.update({
   path: '/admin/gerar',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminMateriaisRoute = AdminMateriaisRouteImport.update({
+  id: '/admin_/materiais',
+  path: '/admin/materiais',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminQuestoesRoute = AdminQuestoesRouteImport.update({
   id: '/admin_/questoes',
   path: '/admin/questoes',
@@ -101,6 +108,11 @@ const AdminQuestoesRoute = AdminQuestoesRouteImport.update({
 const AdminReportesRoute = AdminReportesRouteImport.update({
   id: '/admin_/reportes',
   path: '/admin/reportes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminSuporteRoute = AdminSuporteRouteImport.update({
+  id: '/admin_/suporte',
+  path: '/admin/suporte',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminUsuariosRoute = AdminUsuariosRouteImport.update({
@@ -133,8 +145,10 @@ export interface FileRoutesByFullPath {
   '/termos': typeof TermosRoute
   '/admin/configuracoes': typeof AdminConfiguracoesRoute
   '/admin/gerar': typeof AdminGerarRoute
+  '/admin/materiais': typeof AdminMateriaisRoute
   '/admin/questoes': typeof AdminQuestoesRoute
   '/admin/reportes': typeof AdminReportesRoute
+  '/admin/suporte': typeof AdminSuporteRoute
   '/admin/usuarios': typeof AdminUsuariosRoute
   '/prova/$id': typeof ProvaIdRoute
   '/resultado/$id': typeof ResultadoIdRoute
@@ -153,8 +167,10 @@ export interface FileRoutesByTo {
   '/termos': typeof TermosRoute
   '/admin/configuracoes': typeof AdminConfiguracoesRoute
   '/admin/gerar': typeof AdminGerarRoute
+  '/admin/materiais': typeof AdminMateriaisRoute
   '/admin/questoes': typeof AdminQuestoesRoute
   '/admin/reportes': typeof AdminReportesRoute
+  '/admin/suporte': typeof AdminSuporteRoute
   '/admin/usuarios': typeof AdminUsuariosRoute
   '/prova/$id': typeof ProvaIdRoute
   '/resultado/$id': typeof ResultadoIdRoute
@@ -174,8 +190,10 @@ export interface FileRoutesById {
   '/termos': typeof TermosRoute
   '/admin_/configuracoes': typeof AdminConfiguracoesRoute
   '/admin_/gerar': typeof AdminGerarRoute
+  '/admin_/materiais': typeof AdminMateriaisRoute
   '/admin_/questoes': typeof AdminQuestoesRoute
   '/admin_/reportes': typeof AdminReportesRoute
+  '/admin_/suporte': typeof AdminSuporteRoute
   '/admin_/usuarios': typeof AdminUsuariosRoute
   '/prova/$id': typeof ProvaIdRoute
   '/resultado/$id': typeof ResultadoIdRoute
@@ -196,8 +214,10 @@ export interface FileRouteTypes {
     | '/termos'
     | '/admin/configuracoes'
     | '/admin/gerar'
+    | '/admin/materiais'
     | '/admin/questoes'
     | '/admin/reportes'
+    | '/admin/suporte'
     | '/admin/usuarios'
     | '/prova/$id'
     | '/resultado/$id'
@@ -216,8 +236,10 @@ export interface FileRouteTypes {
     | '/termos'
     | '/admin/configuracoes'
     | '/admin/gerar'
+    | '/admin/materiais'
     | '/admin/questoes'
     | '/admin/reportes'
+    | '/admin/suporte'
     | '/admin/usuarios'
     | '/prova/$id'
     | '/resultado/$id'
@@ -236,8 +258,10 @@ export interface FileRouteTypes {
     | '/termos'
     | '/admin_/configuracoes'
     | '/admin_/gerar'
+    | '/admin_/materiais'
     | '/admin_/questoes'
     | '/admin_/reportes'
+    | '/admin_/suporte'
     | '/admin_/usuarios'
     | '/prova/$id'
     | '/resultado/$id'
@@ -257,8 +281,10 @@ export interface RootRouteChildren {
   TermosRoute: typeof TermosRoute
   AdminConfiguracoesRoute: typeof AdminConfiguracoesRoute
   AdminGerarRoute: typeof AdminGerarRoute
+  AdminMateriaisRoute: typeof AdminMateriaisRoute
   AdminQuestoesRoute: typeof AdminQuestoesRoute
   AdminReportesRoute: typeof AdminReportesRoute
+  AdminSuporteRoute: typeof AdminSuporteRoute
   AdminUsuariosRoute: typeof AdminUsuariosRoute
   ProvaIdRoute: typeof ProvaIdRoute
   ResultadoIdRoute: typeof ResultadoIdRoute
@@ -357,6 +383,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminGerarRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin_/materiais': {
+      id: '/admin_/materiais'
+      path: '/admin/materiais'
+      fullPath: '/admin/materiais'
+      preLoaderRoute: typeof AdminMateriaisRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin_/questoes': {
       id: '/admin_/questoes'
       path: '/admin/questoes'
@@ -369,6 +402,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/reportes'
       fullPath: '/admin/reportes'
       preLoaderRoute: typeof AdminReportesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin_/suporte': {
+      id: '/admin_/suporte'
+      path: '/admin/suporte'
+      fullPath: '/admin/suporte'
+      preLoaderRoute: typeof AdminSuporteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin_/usuarios': {
@@ -409,8 +449,10 @@ const rootRouteChildren: RootRouteChildren = {
   TermosRoute: TermosRoute,
   AdminConfiguracoesRoute: AdminConfiguracoesRoute,
   AdminGerarRoute: AdminGerarRoute,
+  AdminMateriaisRoute: AdminMateriaisRoute,
   AdminQuestoesRoute: AdminQuestoesRoute,
   AdminReportesRoute: AdminReportesRoute,
+  AdminSuporteRoute: AdminSuporteRoute,
   AdminUsuariosRoute: AdminUsuariosRoute,
   ProvaIdRoute: ProvaIdRoute,
   ResultadoIdRoute: ResultadoIdRoute,

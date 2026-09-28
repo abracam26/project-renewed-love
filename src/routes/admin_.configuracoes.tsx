@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, Settings2 } from "lucide-react";
 import { AdminGate } from "@/components/AdminGate";
 import { ConfiguracoesProva } from "@/components/ConfiguracoesProva";
+import { PlanosPrecos } from "@/components/PlanosPrecos";
 
 export const Route = createFileRoute("/admin_/configuracoes")({
   ssr: false,
@@ -34,7 +35,14 @@ function AdminConfiguracoes() {
         </Link>
       </div>
 
-      <AdminGate>{({ token }) => <ConfiguracoesProva token={token} />}</AdminGate>
+      <AdminGate>
+        {({ token }) => (
+          <div className="space-y-5">
+            <PlanosPrecos token={token} />
+            <ConfiguracoesProva token={token} />
+          </div>
+        )}
+      </AdminGate>
     </div>
   );
 }
