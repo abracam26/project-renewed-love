@@ -12,6 +12,7 @@ import {
   Trophy,
   XCircle,
 } from "lucide-react";
+import { IdEReporte } from "@/components/ReportarQuestao";
 import { useToken } from "@/hooks/use-token";
 import { resultadoSimulado } from "@/lib/simulado.functions";
 import { cn } from "@/lib/utils";
@@ -146,16 +147,19 @@ function Resultado() {
                   <XCircle className="mt-0.5 size-5 shrink-0 text-destructive" />
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs text-muted-foreground">
-                    Questão {idx + 1} · Tema {q.tema} · {q.tema_nome}
-                    {q.tempo_ms ? (
-                      <>
-                        <span className="mx-2">·</span>
-                        <Clock className="mr-1 inline size-3" />
-                        {Math.round(q.tempo_ms / 1000)}s
-                      </>
-                    ) : null}
-                  </p>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-xs text-muted-foreground">
+                      Questão {idx + 1} · Tema {q.tema} · {q.tema_nome}
+                      {q.tempo_ms ? (
+                        <>
+                          <span className="mx-2">·</span>
+                          <Clock className="mr-1 inline size-3" />
+                          {Math.round(q.tempo_ms / 1000)}s
+                        </>
+                      ) : null}
+                    </p>
+                    <IdEReporte token={token} questaoId={q.questaoId} simuladoId={id} />
+                  </div>
                   <p className="mt-1 whitespace-pre-line text-sm text-card-foreground">
                     {q.enunciado}
                   </p>

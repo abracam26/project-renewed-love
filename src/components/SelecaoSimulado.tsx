@@ -2,9 +2,21 @@ import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useNavigate } from "@tanstack/react-router";
-import { Loader2, Play } from "lucide-react";
+import { Loader2, Play, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
+import { mensagemErro } from "@/lib/erros";
+import { guardarSessaoProva } from "@/lib/sessao-prova";
 import { iniciarSimulado, listarConfigsProva, type TipoProva } from "@/lib/simulado.functions";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const LABEL: Record<TipoProva, string> = {
   ABT1: "Simulado ABT1",
@@ -26,18 +38,19 @@ export function SelecaoSimulado({
   token,
   temCpf,
   liberado,
-  simuladoEmAndamentoId,
+  temSimuladoAberto,
 }: {
   token: string;
   temCpf: boolean;
   /** Plano ativo ou admin: libera ABT1, ABT2 e Treino livre. */
   liberado: boolean;
-  simuladoEmAndamentoId: string | null;
+  /** Há um simulado que ficou em andamento (será encerrado ao iniciar outro). */
+  temSimuladoAberto: boolean;
 }) {
   const listar = useServerFn(listarConfigsProva);
   const iniciar = useServerFn(iniciarSimulado);
   const navigate = useNavigate();
-  const [carregando, setCarregando] = useState<TipoProva | null>(null);
+  const [confirmar, setConfirmar] = useState<TipoProva | null>(null);
 
   const query = useQuery({
     queryKey: ["configs-prova"],
@@ -46,41 +59,27 @@ export function SelecaoSimulado({
 
   const mut = useMutation({
     mutationFn: (tipo: TipoProva) => iniciar({ data: { token, tipo } }),
-    onMutate: (tipo) => setCarregando(tipo),
-    onSuccess: (r, tipo) => {
-      if (r.retomado) toast.info(`Retomando seu ${LABEL[tipo]} em andamento.`);
+    onSuccess: (r) => {
+      // A prova fica presa a esta aba: sem a sessão, não há como continuar
+      guardarSessaoProva(r.simuladoId, r.sessao);
       void navigate({ to: "/prova/$id", params: { id: r.simuladoId } });
     },
     onError: (e) => {
-      setCarregando(null);
-      toast.error(e instanceof Error ? e.message : "Falha ao iniciar simulado.");
+      setConfirmar(null);
+      toast.error(mensagemErro(e));
     },
   });
 
   const tipos: TipoProva[] = ["ABT1", "ABT2", "GRATIS", "LIVRE"];
+  const cfgConfirmar = confirmar ? query.data?.configs.find((c) => c.tipo === confirmar) : null;
 
   return (
     <section className="panel p-5">
       <h2 className="text-lg font-semibold text-card-foreground">Iniciar simulado</h2>
       <p className="text-xs text-muted-foreground">
-        Escolha o tipo de prova. Você pode manter apenas um simulado em andamento por vez.
+        Escolha o tipo de prova. Depois de iniciado, o simulado precisa ser feito até o fim, sem
+        pausa.
       </p>
-
-      {simuladoEmAndamentoId && (
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-info/30 bg-info/10 p-4 text-sm">
-          <p className="text-card-foreground">
-            Você tem um simulado em andamento. Retome de onde parou ou finalize antes de iniciar
-            outro.
-          </p>
-          <button
-            type="button"
-            onClick={() => navigate({ to: "/prova/$id", params: { id: simuladoEmAndamentoId } })}
-            className="rounded-md bg-info px-3 py-1.5 text-xs font-semibold text-info-foreground"
-          >
-            Retomar simulado
-          </button>
-        </div>
-      )}
 
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         {tipos.map((tipo) => {
@@ -88,7 +87,7 @@ export function SelecaoSimulado({
           const semCpf = tipo === "GRATIS" && !temCpf;
           const semPlano = tipo !== "GRATIS" && !liberado;
           const desabilitado = semCpf || semPlano;
-          const emCarga = carregando === tipo || mut.isPending;
+          const emCarga = mut.isPending && mut.variables === tipo;
           return (
             <div key={tipo} className="rounded-lg border border-border bg-secondary/30 p-4">
               <div className="flex items-center justify-between gap-2">
@@ -112,8 +111,8 @@ export function SelecaoSimulado({
               )}
               <button
                 type="button"
-                disabled={desabilitado || emCarga || query.isPending}
-                onClick={() => mut.mutate(tipo)}
+                disabled={desabilitado || mut.isPending || query.isPending}
+                onClick={() => setConfirmar(tipo)}
                 className="mt-3 inline-flex items-center gap-2 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-gold disabled:opacity-50"
               >
                 {emCarga ? (
@@ -127,6 +126,53 @@ export function SelecaoSimulado({
           );
         })}
       </div>
+
+      <AlertDialog open={Boolean(confirmar)} onOpenChange={(o) => !o && setConfirmar(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <TriangleAlert className="size-5 text-primary" />
+              Iniciar {confirmar ? LABEL[confirmar] : "simulado"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm leading-relaxed">
+                {cfgConfirmar && (
+                  <p>
+                    {cfgConfirmar.total_questoes} questões em até {cfgConfirmar.tempo_maximo_min}{" "}
+                    minutos.
+                  </p>
+                )}
+                <p>
+                  Depois de iniciar, faça o simulado <strong>até o fim, sem pausa</strong>. Fechar a
+                  aba, abrir o simulado em outra aba ou sair para outra página encerra a prova, e
+                  ela conta como abandonada.
+                </p>
+                {confirmar === "GRATIS" && (
+                  <p>O teste grátis conta como utilizado assim que você iniciar.</p>
+                )}
+                {temSimuladoAberto && (
+                  <p className="font-medium text-destructive">
+                    Você tem um simulado que não foi finalizado. Ele será encerrado como abandonado.
+                  </p>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={mut.isPending}>Agora não</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={mut.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (confirmar) mut.mutate(confirmar);
+              }}
+              className="bg-primary text-primary-foreground shadow-gold hover:bg-primary/90"
+            >
+              {mut.isPending ? "Iniciando..." : "Iniciar agora"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }

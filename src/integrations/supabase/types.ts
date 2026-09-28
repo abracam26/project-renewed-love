@@ -239,6 +239,12 @@ export type Database = {
           show_in_ranking: boolean
           updated_at: string
           username: string | null
+          cadastro_completo_em: string | null
+          cnpj: string | null
+          cpf: string | null
+          email: string | null
+          instituicao: string | null
+          nome_completo: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -251,6 +257,12 @@ export type Database = {
           show_in_ranking?: boolean
           updated_at?: string
           username?: string | null
+          cadastro_completo_em?: string | null
+          cnpj?: string | null
+          cpf?: string | null
+          email?: string | null
+          instituicao?: string | null
+          nome_completo?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -263,6 +275,12 @@ export type Database = {
           show_in_ranking?: boolean
           updated_at?: string
           username?: string | null
+          cadastro_completo_em?: string | null
+          cnpj?: string | null
+          cpf?: string | null
+          email?: string | null
+          instituicao?: string | null
+          nome_completo?: string | null
         }
         Relationships: []
       }
@@ -349,6 +367,63 @@ export type Database = {
           },
         ]
       }
+      reportes_questao: {
+        Row: {
+          created_at: string
+          descricao: string | null
+          id: string
+          motivo: string
+          questao_id: string
+          resolvido_em: string | null
+          resolvido_por: string | null
+          resposta_admin: string | null
+          simulado_id: string | null
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          motivo: string
+          questao_id: string
+          resolvido_em?: string | null
+          resolvido_por?: string | null
+          resposta_admin?: string | null
+          simulado_id?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          motivo?: string
+          questao_id?: string
+          resolvido_em?: string | null
+          resolvido_por?: string | null
+          resposta_admin?: string | null
+          simulado_id?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reportes_questao_questao_id_fkey"
+            columns: ["questao_id"]
+            isOneToOne: false
+            referencedRelation: "questoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reportes_questao_simulado_id_fkey"
+            columns: ["simulado_id"]
+            isOneToOne: false
+            referencedRelation: "simulados"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       simulado_questoes: {
         Row: {
           correta: boolean | null
@@ -414,6 +489,7 @@ export type Database = {
           tipo: string
           total_questoes: number
           user_id: string
+          sessao_prova: string | null
         }
         Insert: {
           acertos?: number | null
@@ -428,6 +504,7 @@ export type Database = {
           tipo: string
           total_questoes: number
           user_id: string
+          sessao_prova?: string | null
         }
         Update: {
           acertos?: number | null
@@ -442,6 +519,7 @@ export type Database = {
           tipo?: string
           total_questoes?: number
           user_id?: string
+          sessao_prova?: string | null
         }
         Relationships: [
           {
@@ -479,6 +557,32 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_listar_usuarios: {
+        Args: {
+          p_busca?: string
+          p_filtro?: string
+          p_limite?: number
+          p_offset?: number
+        }
+        Returns: {
+          acesso_ativo: boolean
+          cadastro_completo: boolean
+          cnpj: string | null
+          cpf: string | null
+          criado_em: string
+          email: string | null
+          instituicao: string | null
+          is_admin: boolean
+          nome: string | null
+          plano: string
+          plano_validade: string | null
+          provedor: string
+          simulados: number
+          total: number
+          ultimo_acesso: string | null
+          user_id: string
+        }[]
+      }
       contar_questoes_por_tema: {
         Args: never
         Returns: {

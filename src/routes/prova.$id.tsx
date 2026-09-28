@@ -1,10 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
+import { createFileRoute, Link, useBlocker, useNavigate, useParams } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ChevronLeft, ChevronRight, Clock, Flag, Loader2, LogOut, ShieldAlert } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Flag,
+  Loader2,
+  LogOut,
+  ShieldAlert,
+  TriangleAlert,
+} from "lucide-react";
 import { toast } from "sonner";
+import { IdEReporte } from "@/components/ReportarQuestao";
 import { useToken } from "@/hooks/use-token";
+import { mensagemErro } from "@/lib/erros";
+import { lerSessaoProva, limparSessaoProva } from "@/lib/sessao-prova";
 import {
   abandonarSimulado,
   carregarSimulado,
@@ -52,9 +64,11 @@ function Prova() {
   }
   return (
     <ProvaInterna
+      key={id}
       simuladoId={id}
       token={token}
-      onFimNavegar={(sid) => navigate({ to: "/resultado/$id", params: { id: sid } })}
+      onResultado={(sid) => navigate({ to: "/resultado/$id", params: { id: sid } })}
+      onPainel={() => navigate({ to: "/" })}
     />
   );
 }
@@ -70,11 +84,13 @@ function fmtTempo(seg: number) {
 function ProvaInterna({
   simuladoId,
   token,
-  onFimNavegar,
+  onResultado,
+  onPainel,
 }: {
   simuladoId: string;
   token: string;
-  onFimNavegar: (sid: string) => void;
+  onResultado: (sid: string) => void;
+  onPainel: () => void;
 }) {
   const carregar = useServerFn(carregarSimulado);
   const responder = useServerFn(responderQuestao);
@@ -82,11 +98,16 @@ function ProvaInterna({
   const abandonar = useServerFn(abandonarSimulado);
   const queryClient = useQueryClient();
 
+  // A prova só continua na aba em que começou
+  const sessao = useMemo(() => lerSessaoProva(simuladoId), [simuladoId]);
+
   const query = useQuery({
-    queryKey: ["prova", simuladoId],
-    queryFn: () => carregar({ data: { token, simuladoId } }),
+    queryKey: ["prova", simuladoId, sessao],
+    queryFn: () => carregar({ data: { token, simuladoId, sessao } }),
     refetchOnWindowFocus: false,
     staleTime: Infinity,
+    gcTime: 0,
+    retry: false,
   });
 
   const [i, setI] = useState(0);
@@ -94,6 +115,23 @@ function ProvaInterna({
   const inicioQuestaoRef = useRef<number>(Date.now());
   const [confirmarFinalizar, setConfirmarFinalizar] = useState(false);
   const [confirmarAbandonar, setConfirmarAbandonar] = useState(false);
+  const [encerradoNoServidor, setEncerradoNoServidor] = useState(false);
+
+  const status = query.data?.simulado.status;
+  const perdido = Boolean(query.data?.perdido) || encerradoNoServidor || status === "abandonado";
+  const emAndamento = status === "em_andamento" && !perdido;
+
+  // Sair da prova encerra o simulado: bloqueia a navegação e pede confirmação.
+  // "liberado" vira true depois de finalizar ou abandonar, para sair sem aviso.
+  const liberadoRef = useRef(false);
+  const ativoRef = useRef(false);
+  ativoRef.current = emAndamento;
+  const bloqueio = useBlocker({
+    shouldBlockFn: ({ next }) =>
+      ativoRef.current && !liberadoRef.current && next.pathname !== `/prova/${simuladoId}`,
+    enableBeforeUnload: () => ativoRef.current && !liberadoRef.current,
+    withResolver: true,
+  });
 
   // Preenche o estado local com as respostas já salvas ao carregar
   useEffect(() => {
@@ -103,6 +141,24 @@ function ProvaInterna({
     setRespostas(r);
     inicioQuestaoRef.current = Date.now();
   }, [query.data]);
+
+  // Simulado já corrigido (ex.: tempo esgotou): vai para o resultado
+  const navegouRef = useRef(false);
+  useEffect(() => {
+    if (status === "finalizado" && !navegouRef.current) {
+      navegouRef.current = true;
+      liberadoRef.current = true;
+      limparSessaoProva(simuladoId);
+      onResultado(simuladoId);
+    }
+  }, [status, simuladoId, onResultado]);
+
+  useEffect(() => {
+    if (perdido) {
+      liberadoRef.current = true;
+      limparSessaoProva(simuladoId);
+    }
+  }, [perdido, simuladoId]);
 
   // Cronômetro do simulado
   const inicio = query.data ? new Date(query.data.simulado.iniciado_em).getTime() : Date.now();
@@ -114,16 +170,24 @@ function ProvaInterna({
   }, []);
   const decorridoSeg = Math.floor((agora - inicio) / 1000);
   const restante = Math.max(0, tempoMax - decorridoSeg);
-  const tempoAcabou = tempoMax > 0 && restante === 0;
+  const tempoAcabou = emAndamento && tempoMax > 0 && restante === 0;
+
+  function tratarErroDeSessao(e: unknown) {
+    const msg = mensagemErro(e);
+    if (/encerrado/i.test(msg)) setEncerradoNoServidor(true);
+    return msg;
+  }
 
   const mutFinalizar = useMutation({
-    mutationFn: () => finalizar({ data: { token, simuladoId } }),
+    mutationFn: () => finalizar({ data: { token, simuladoId, sessao } }),
     onSuccess: async () => {
+      liberadoRef.current = true;
+      limparSessaoProva(simuladoId);
       await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       await queryClient.invalidateQueries({ queryKey: ["historico-aluno"] });
-      onFimNavegar(simuladoId);
+      onResultado(simuladoId);
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao finalizar."),
+    onError: (e) => toast.error(tratarErroDeSessao(e)),
   });
 
   useEffect(() => {
@@ -136,19 +200,28 @@ function ProvaInterna({
   const mutResponder = useMutation({
     mutationFn: (v: { sqId: string; posicao: number | null; tempoMs: number }) =>
       responder({
-        data: { token, simuladoQuestaoId: v.sqId, posicao: v.posicao, tempoMs: v.tempoMs },
+        data: {
+          token,
+          simuladoQuestaoId: v.sqId,
+          posicao: v.posicao,
+          tempoMs: v.tempoMs,
+          sessao,
+        },
       }),
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao registrar resposta."),
+    onError: (e) => toast.error(tratarErroDeSessao(e)),
   });
 
   const mutAbandonar = useMutation({
-    mutationFn: () => abandonar({ data: { token, simuladoId } }),
-    onSuccess: async () => {
+    mutationFn: (_depois: () => void) => abandonar({ data: { token, simuladoId } }),
+    onSuccess: async (_r, depois) => {
+      liberadoRef.current = true;
+      limparSessaoProva(simuladoId);
       await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      toast.info("Simulado abandonado.");
-      window.location.href = "/";
+      await queryClient.invalidateQueries({ queryKey: ["historico-aluno"] });
+      toast.info("Simulado encerrado como abandonado.");
+      depois();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao abandonar."),
+    onError: (e) => toast.error(mensagemErro(e)),
   });
 
   const questoes = query.data?.questoes ?? [];
@@ -183,16 +256,46 @@ function ProvaInterna({
       <div className="panel p-8 text-center">
         <ShieldAlert className="mx-auto size-8 text-destructive" />
         <p className="mt-3 text-sm text-card-foreground">
-          {query.error instanceof Error ? query.error.message : "Simulado não encontrado."}
+          {query.error ? mensagemErro(query.error) : "Simulado não encontrado."}
         </p>
       </div>
     );
   }
-  if (query.data.simulado.status !== "em_andamento") {
-    onFimNavegar(simuladoId);
-    return null;
+  if (perdido) {
+    return (
+      <div className="panel mx-auto max-w-xl p-8 text-center">
+        <TriangleAlert className="mx-auto size-9 text-destructive" />
+        <h1 className="mt-4 text-lg font-semibold text-card-foreground">Simulado encerrado</h1>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          Este simulado foi encerrado porque a prova foi interrompida: a tela foi fechada, aberta em
+          outra aba ou você iniciou outro simulado. Depois de iniciado, o simulado precisa ser feito
+          até o fim, sem pausa. Ele ficou registrado como abandonado no seu histórico.
+        </p>
+        <div className="mt-6 flex flex-wrap justify-center gap-2">
+          <Link
+            to="/"
+            className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-gold"
+          >
+            Voltar ao painel
+          </Link>
+          <Link
+            to="/historico"
+            className="rounded-md border border-input px-4 py-2 text-sm font-medium text-card-foreground hover:bg-accent"
+          >
+            Ver histórico
+          </Link>
+        </div>
+      </div>
+    );
   }
-  if (!atual) return null;
+  if (!emAndamento || !atual) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center text-sm text-muted-foreground">
+        <Loader2 className="mr-2 size-4 animate-spin text-primary" />
+        Abrindo o resultado...
+      </div>
+    );
+  }
 
   const alt_atual = respostas[atual.simuladoQuestaoId] ?? null;
 
@@ -238,13 +341,26 @@ function ProvaInterna({
             Finalizar
           </button>
         </div>
+        <p className="flex w-full items-center gap-1.5 text-[11px] text-muted-foreground">
+          <TriangleAlert className="size-3.5 shrink-0 text-primary" />
+          Faça o simulado até o fim, sem sair desta tela. Fechar a aba, abrir o simulado em outra
+          aba ou navegar para outra página encerra a prova.
+        </p>
       </section>
 
       {/* Questão */}
       <section className="panel p-6">
-        <p className="text-xs uppercase tracking-wide text-muted-foreground">
-          Tema {atual.tema} · {atual.tema_nome}
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">
+            Tema {atual.tema} · {atual.tema_nome}
+          </p>
+          <IdEReporte
+            key={atual.questaoId}
+            token={token}
+            questaoId={atual.questaoId}
+            simuladoId={simuladoId}
+          />
+        </div>
         <p className="mt-2 whitespace-pre-line text-base leading-relaxed text-card-foreground">
           {atual.enunciado}
         </p>
@@ -358,20 +474,51 @@ function ProvaInterna({
           <AlertDialogHeader>
             <AlertDialogTitle>Abandonar simulado?</AlertDialogTitle>
             <AlertDialogDescription>
-              O simulado ficará marcado como abandonado no seu histórico e não gera resultado. Você
-              não perde o teste grátis se for esse o tipo.
+              O simulado será encerrado e ficará marcado como abandonado no seu histórico, sem
+              resultado. Não é possível retomá-lo depois. Se for o teste grátis, ele conta como
+              utilizado.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Voltar</AlertDialogCancel>
+            <AlertDialogCancel>Voltar à prova</AlertDialogCancel>
             <AlertDialogAction
+              disabled={mutAbandonar.isPending}
               onClick={(e) => {
                 e.preventDefault();
-                mutAbandonar.mutate();
+                mutAbandonar.mutate(onPainel);
               }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Abandonar
+              {mutAbandonar.isPending ? "Encerrando..." : "Abandonar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Tentativa de sair pelo menu ou pelo botão voltar do navegador */}
+      <AlertDialog open={bloqueio.status === "blocked"}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sair do simulado?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se você sair agora, o simulado será encerrado e contará como abandonado. Não é
+              possível voltar a ele depois.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => bloqueio.reset?.()}>
+              Continuar no simulado
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={mutAbandonar.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                const seguir = bloqueio.proceed;
+                if (seguir) mutAbandonar.mutate(seguir);
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {mutAbandonar.isPending ? "Encerrando..." : "Sair e encerrar"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
