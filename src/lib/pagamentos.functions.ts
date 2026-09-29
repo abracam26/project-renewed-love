@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import {
   ehAdmin,
@@ -25,6 +26,15 @@ import {
   type StatusPedido,
 } from "@/lib/pagamentos";
 import { acessoAtivo, hojeSaoPaulo } from "@/lib/planos";
+
+/**
+ * O módulo de pagamentos é implantado por uma migration própria e pode estar
+ * à frente do arquivo de tipos gerado. Mantém a checagem do restante do banco
+ * sem bloquear a compilação enquanto esses tipos são sincronizados.
+ */
+function bancoPagamentos(client: SupabaseAdmin) {
+  return client as unknown as SupabaseClient<any>;
+}
 
 /**
  * Planos à venda, pedidos e pagamentos (Etapa 1: o aluno faz o pedido e paga
@@ -84,7 +94,7 @@ function lerConfig(valor: string | null | undefined): ConfigPagamento {
 }
 
 async function carregarConfig(supabaseAdmin: SupabaseAdmin) {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await bancoPagamentos(supabaseAdmin)
     .from("configuracoes")
     .select("valor")
     .eq("chave", CHAVE_CONFIG)
@@ -193,7 +203,7 @@ export const planosParaAluno = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin, user } = await usuarioLogado(data.token);
     // Pendentes com prazo vencido deste aluno viram "Prazo vencido"
-    const { error: eExp } = await supabaseAdmin.rpc("expirar_pedidos_vencidos", {
+    const { error: eExp } = await bancoPagamentos(supabaseAdmin).rpc("expirar_pedidos_vencidos", {
       p_user: user.id,
     });
     erroRpc(eExp);
@@ -205,7 +215,7 @@ export const planosParaAluno = createServerFn({ method: "POST" })
       config,
       { data: pedidos, error: ePedidos },
     ] = await Promise.all([
-      supabaseAdmin
+      bancoPagamentos(supabaseAdmin)
         .from("profiles")
         .select(
           "plano, plano_validade, plano_nome, cpf, cpf_hash, cnpj, instituicao, cadastro_completo_em",
@@ -213,7 +223,7 @@ export const planosParaAluno = createServerFn({ method: "POST" })
         .eq("id", user.id)
         .maybeSingle(),
       ehAdmin(supabaseAdmin, user.id),
-      supabaseAdmin
+      bancoPagamentos(supabaseAdmin)
         .from("planos")
         .select(
           "id, nome, descricao, beneficios, tipo_acesso, duracao_quantidade, duracao_unidade, preco_centavos, destaque, ordem",
@@ -222,7 +232,7 @@ export const planosParaAluno = createServerFn({ method: "POST" })
         .order("ordem")
         .order("preco_centavos"),
       carregarConfig(supabaseAdmin),
-      supabaseAdmin
+      bancoPagamentos(supabaseAdmin)
         .from("pedidos")
         .select(CAMPOS_PEDIDO)
         .eq("user_id", user.id)
@@ -310,7 +320,7 @@ export const criarPedido = createServerFn({ method: "POST" })
     if (!config.formasManual.includes(data.metodo)) {
       throw new Error("Esta forma de pagamento não está disponível no momento.");
     }
-    const { data: r, error } = await supabaseAdmin.rpc("criar_pedido", {
+    const { data: r, error } = await bancoPagamentos(supabaseAdmin).rpc("criar_pedido", {
       p_user: user.id,
       p_plano: data.planoId,
       p_metodo: data.metodo,
@@ -332,7 +342,7 @@ export const cancelarMeuPedido = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { supabaseAdmin, user } = await usuarioLogado(data.token);
-    const { error } = await supabaseAdmin.rpc("cancelar_pedido", {
+    const { error } = await bancoPagamentos(supabaseAdmin).rpc("cancelar_pedido", {
       p_pedido: data.pedidoId,
       p_por: user.id,
       p_dono: user.id,
@@ -348,7 +358,7 @@ export const listarPlanosAdmin = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ token: tokenSchema }).parse(d))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await exigirAdmin(data.token);
-    const { data: planos, error } = await supabaseAdmin
+    const { data: planos, error } = await bancoPagamentos(supabaseAdmin)
       .from("planos")
       .select("*")
       .order("ordem")
@@ -356,7 +366,7 @@ export const listarPlanosAdmin = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     const usos = await Promise.all(
       (planos ?? []).map(async (p) => {
-        const { count, error: e } = await supabaseAdmin
+        const { count, error: e } = await bancoPagamentos(supabaseAdmin)
           .from("pedidos")
           .select("id", { count: "exact", head: true })
           .eq("plano_id", p.id);
@@ -448,8 +458,8 @@ export const salvarPlano = createServerFn({ method: "POST" })
       ativo: data.ativo,
     };
     const { error } = data.id
-      ? await supabaseAdmin.from("planos").update(row).eq("id", data.id)
-      : await supabaseAdmin.from("planos").insert(row);
+      ? await bancoPagamentos(supabaseAdmin).from("planos").update(row).eq("id", data.id)
+      : await bancoPagamentos(supabaseAdmin).from("planos").insert(row);
     if (error) throw new Error(error.message);
     return { ok: true as const };
   });
@@ -458,14 +468,17 @@ export const excluirPlano = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ token: tokenSchema, id: z.string().uuid() }).parse(d))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await exigirAdmin(data.token);
-    const { count } = await supabaseAdmin
+    const { count } = await bancoPagamentos(supabaseAdmin)
       .from("pedidos")
       .select("id", { count: "exact", head: true })
       .eq("plano_id", data.id);
     if ((count ?? 0) > 0) {
       throw new Error("Este plano já tem pedidos e não pode ser excluído. Desative-o.");
     }
-    const { error } = await supabaseAdmin.from("planos").delete().eq("id", data.id);
+    const { error } = await bancoPagamentos(supabaseAdmin)
+      .from("planos")
+      .delete()
+      .eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true as const };
   });
@@ -531,7 +544,7 @@ export const salvarConfigPagamento = createServerFn({ method: "POST" })
       instrucoes,
       pagarme: { chave_publica: data.pagarmeChavePublica },
     });
-    const { error } = await supabaseAdmin.from("configuracoes").upsert(
+    const { error } = await bancoPagamentos(supabaseAdmin).from("configuracoes").upsert(
       {
         chave: CHAVE_CONFIG,
         valor,
