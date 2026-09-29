@@ -2,7 +2,6 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   BarChart3,
-  Bell,
   Clock,
   CreditCard,
   FileDown,
@@ -18,6 +17,7 @@ import {
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import logoAsset from "@/assets/abracam-logo.png.asset.json";
 import { ContaGate } from "@/components/ContaGate";
+import { Notificacoes } from "@/components/Notificacoes";
 import { useSupabaseSession } from "@/hooks/use-session";
 import { supabase } from "@/integrations/supabase/client";
 import { guardarDestinoAposLogin } from "@/lib/destino-login";
@@ -112,7 +112,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="border-t border-sidebar-border p-3">
-          <button onClick={handleSignOut} className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-destructive transition-colors hover:bg-sidebar-accent">
+          <button
+            onClick={handleSignOut}
+            className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-destructive transition-colors hover:bg-sidebar-accent"
+          >
             <LogOut className="size-4" />
             Sair
           </button>
@@ -139,16 +142,15 @@ export function AppShell({ children }: { children: ReactNode }) {
           <span className="text-sm font-medium text-sidebar-foreground">Painel de Controle</span>
 
           <div className="ml-auto flex items-center gap-4">
-            <button className="relative rounded-md p-2 text-sidebar-foreground/80 hover:bg-sidebar-accent" aria-label="Notificações">
-              <Bell className="size-4" />
-              <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-destructive" />
-            </button>
+            <Notificacoes />
             <div className="flex items-center gap-2">
               <span className="flex size-8 items-center justify-center rounded-full bg-sidebar-accent text-sidebar-accent-foreground">
                 <User className="size-4" />
               </span>
               <span className="hidden leading-tight sm:block">
-                <span className="block text-sm font-medium text-sidebar-foreground">{displayName}</span>
+                <span className="block text-sm font-medium text-sidebar-foreground">
+                  {displayName}
+                </span>
                 <span className="block text-xs text-muted-foreground">Online</span>
               </span>
             </div>

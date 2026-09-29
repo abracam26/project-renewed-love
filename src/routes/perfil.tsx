@@ -6,11 +6,13 @@ import {
   CalendarDays,
   CreditCard,
   IdCard,
+  KeyRound,
   Loader2,
   Mail,
   Trophy,
   User,
 } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { useToken } from "@/hooks/use-token";
 import { formatarCnpj } from "@/lib/cnpj";
@@ -18,6 +20,7 @@ import { mascararCpf } from "@/lib/cpf";
 import { mensagemErro } from "@/lib/erros";
 import { CONTROLADOR } from "@/lib/juridico";
 import { formatarDataBR, nomeDoPlano } from "@/lib/planos";
+import { enviarLinkDeRecuperacao } from "@/lib/recuperacao-senha";
 import { definirParticipacaoRanking, meuPerfil } from "@/lib/usuarios.functions";
 import { cn } from "@/lib/utils";
 
@@ -73,6 +76,13 @@ function Perfil() {
   const carregar = useServerFn(meuPerfil);
   const definirRanking = useServerFn(definirParticipacaoRanking);
   const queryClient = useQueryClient();
+  const [linkSenhaEnviado, setLinkSenhaEnviado] = useState(false);
+
+  const mutSenha = useMutation({
+    mutationFn: (email: string) => enviarLinkDeRecuperacao(email),
+    onSuccess: () => setLinkSenhaEnviado(true),
+    onError: (e) => toast.error(mensagemErro(e)),
+  });
 
   const query = useQuery({
     queryKey: ["meu-perfil", token],
@@ -113,6 +123,7 @@ function Perfil() {
   const ranking = p.participaRanking;
   const pago = p.plano === "mensal" || p.plano === "anual";
   const loginGoogle = p.provedores.includes("google");
+  const temSenha = p.provedores.includes("email");
 
   return (
     <div className="space-y-5">
@@ -199,6 +210,38 @@ function Perfil() {
               <dt className="text-xs font-medium text-muted-foreground">Forma de login</dt>
               <dd className="mt-0.5 text-card-foreground">
                 {loginGoogle ? "Conta Google" : "E-mail e senha"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium text-muted-foreground">Senha</dt>
+              <dd className="mt-1">
+                {linkSenhaEnviado ? (
+                  <p className="text-xs text-card-foreground">
+                    Enviamos um link para <strong>{p.email}</strong>. Abra o e-mail (veja também o
+                    spam) e siga as instruções para criar a nova senha.
+                  </p>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      disabled={!p.email || mutSenha.isPending}
+                      onClick={() => p.email && mutSenha.mutate(p.email)}
+                      className="inline-flex items-center gap-2 rounded-md border border-border bg-secondary px-3 py-2 text-xs font-medium text-card-foreground transition-colors hover:bg-accent disabled:opacity-60"
+                    >
+                      {mutSenha.isPending ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : (
+                        <KeyRound className="size-3.5 text-primary" />
+                      )}
+                      {temSenha ? "Trocar minha senha" : "Criar ou trocar minha senha"}
+                    </button>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {temSenha
+                        ? "Vamos enviar para o seu e-mail um link para criar a nova senha."
+                        : "Você entra com a conta Google. Pelo link que vamos enviar ao seu e-mail, você cria uma senha (ou troca a que já criou) para entrar também com e-mail e senha."}
+                    </p>
+                  </>
+                )}
               </dd>
             </div>
             <div>
