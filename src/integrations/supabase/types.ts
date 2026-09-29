@@ -331,6 +331,7 @@ export type Database = {
           instituicao: string | null
           nome_completo: string | null
           plano: string
+          plano_nome: string | null
           plano_validade: string | null
           show_in_ranking: boolean
           updated_at: string
@@ -349,6 +350,7 @@ export type Database = {
           instituicao?: string | null
           nome_completo?: string | null
           plano?: string
+          plano_nome?: string | null
           plano_validade?: string | null
           show_in_ranking?: boolean
           updated_at?: string
@@ -367,6 +369,7 @@ export type Database = {
           instituicao?: string | null
           nome_completo?: string | null
           plano?: string
+          plano_nome?: string | null
           plano_validade?: string | null
           show_in_ranking?: boolean
           updated_at?: string
