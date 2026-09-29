@@ -1,5 +1,4 @@
 import { createServerFn } from "@tanstack/react-start";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import {
   DIFICULDADES,
@@ -150,9 +149,8 @@ export const resumoQuestoes = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ token: tokenSchema }).parse(d))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await exigirAdmin(data.token);
-    const db = supabaseAdmin as unknown as SupabaseClient<any>;
     // Pedidos com prazo vencido não contam como "aguardando" (mesma regra da lista)
-    await db.rpc("expirar_pedidos_vencidos", {});
+    await supabaseAdmin.rpc("expirar_pedidos_vencidos", {});
 
     const [
       { data: porTema, error: e1 },
@@ -165,7 +163,7 @@ export const resumoQuestoes = createServerFn({ method: "POST" })
       { data: revisao },
     ] = await Promise.all([
       supabaseAdmin.rpc("contar_questoes_por_exame_tema"),
-      db
+      supabaseAdmin
         .from("importacoes")
         .select(
           "id, arquivo, formato, total_lidas, total_inseridas, total_atualizadas, total_erros, created_at",
@@ -185,11 +183,11 @@ export const resumoQuestoes = createServerFn({ method: "POST" })
         .from("chamados_suporte")
         .select("id", { count: "exact", head: true })
         .eq("status", "aberto"),
-      db
+      supabaseAdmin
         .from("pedidos")
         .select("id", { count: "exact", head: true })
         .eq("status", "pendente"),
-      db.from("pagamentos").select("pedido_id").eq("requer_revisao", true).limit(1000),
+      supabaseAdmin.from("pagamentos").select("pedido_id").eq("requer_revisao", true).limit(1000),
     ]);
     if (e1) throw new Error(e1.message);
     if (e2) throw new Error(e2.message);

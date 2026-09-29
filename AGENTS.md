@@ -9,4 +9,4 @@
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
 
-- Keep payment-schema queries server-only and temporarily widen only their Supabase client typing until generated database types include the deployed payment migration; this preserves strict types elsewhere.
+- Payment tables and functions (migration 20260929140000_planos_pedidos_pagamentos.sql) are deployed and present in src/integrations/supabase/types.ts; keep payment queries server-only and fully typed (no `any` casts).
