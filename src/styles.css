@@ -27,6 +27,7 @@
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
+  --color-dialog-copy: var(--dialog-copy);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
@@ -77,6 +78,7 @@
 
   --muted: oklch(0.32 0.042 234);
   --muted-foreground: oklch(0.74 0.025 225);
+  --dialog-copy: oklch(0.12 0.035 233);
 
   --accent: oklch(0.35 0.05 234);
   --accent-foreground: oklch(0.97 0.006 220);
