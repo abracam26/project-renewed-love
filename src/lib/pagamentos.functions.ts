@@ -565,11 +565,12 @@ const POR_PAGINA = 30;
 export type PedidoAdmin = Awaited<ReturnType<typeof montarPedidosAdmin>>[number];
 
 async function montarPedidosAdmin(supabaseAdmin: SupabaseAdmin, linhas: PedidoLinha[]) {
+  const db = bancoPagamentos(supabaseAdmin);
   const ids = linhas.map((p) => p.id);
   const usuarios = [...new Set(linhas.map((p) => p.user_id).filter((x): x is string => !!x))];
   const [pagsRes, perfisRes, pendRes] = await Promise.all([
     ids.length
-      ? supabaseAdmin
+      ? db
           .from("pagamentos")
           .select(
             "id, pedido_id, gateway, metodo_pagamento, valor, status, paid_at, created_at, requer_revisao, motivo_revisao, metadata",
@@ -578,14 +579,14 @@ async function montarPedidosAdmin(supabaseAdmin: SupabaseAdmin, linhas: PedidoLi
           .order("created_at")
       : null,
     usuarios.length
-      ? supabaseAdmin
+      ? db
           .from("profiles")
           .select("id, plano, plano_validade, plano_nome")
           .in("id", usuarios)
       : null,
     // Pedido do mesmo aluno aguardando pagamento (aviso ao confirmar outro pedido)
     usuarios.length
-      ? supabaseAdmin
+      ? db
           .from("pedidos")
           .select("id, user_id, codigo")
           .eq("status", "pendente")
@@ -679,7 +680,7 @@ export const listarPedidos = createServerFn({ method: "POST" })
     erroRpc(eExp);
 
     const contar = (status: StatusPedido[]) =>
-      supabaseAdmin
+      db
         .from("pedidos")
         .select("id", { count: "exact", head: true })
         .in("status", status);

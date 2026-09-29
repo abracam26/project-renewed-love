@@ -8,3 +8,5 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Keep payment-schema queries server-only and temporarily widen only their Supabase client typing until generated database types include the deployed payment migration; this preserves strict types elsewhere.
