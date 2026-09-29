@@ -171,18 +171,18 @@ export function SelecaoSimulado({
                       setEscolhendoGratis(false);
                       setConfirmar(opcao);
                     }}
-                    className="flex w-full items-start justify-between gap-3 rounded-lg border border-border bg-secondary/30 px-4 py-3 text-left transition-colors hover:border-primary/60 hover:bg-accent"
+                    className="flex w-full items-start justify-between gap-3 rounded-lg border border-border bg-secondary px-4 py-3 text-left text-secondary-foreground transition-colors hover:border-primary/60 hover:bg-accent hover:text-accent-foreground"
                   >
                     <span className="min-w-0">
-                      <span className="block text-sm font-semibold text-card-foreground">
+                      <span className="block text-sm font-semibold text-secondary-foreground">
                         {LABEL[opcao].replace("Teste grátis ", "")}
                       </span>
-                      <span className="mt-0.5 block text-xs text-muted-foreground">
+                      <span className="mt-0.5 block text-xs text-secondary-foreground/85">
                         {DESCRICAO[opcao]}
                       </span>
                     </span>
                     {cfg && (
-                      <span className="shrink-0 text-[11px] text-muted-foreground">
+                      <span className="shrink-0 text-[11px] font-medium text-secondary-foreground/85">
                         {cfg.total_questoes} questões · {cfg.tempo_maximo_min} min
                       </span>
                     )}
