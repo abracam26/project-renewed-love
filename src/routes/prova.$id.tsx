@@ -335,14 +335,6 @@ function ProvaInterna({
             <LogOut className="mr-1 inline size-3.5" />
             Abandonar
           </button>
-          <button
-            type="button"
-            onClick={() => setConfirmarFinalizar(true)}
-            className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-gold"
-          >
-            <Flag className="mr-1 inline size-3.5" />
-            Finalizar
-          </button>
         </div>
         <p className="flex w-full items-center gap-1.5 text-[11px] text-muted-foreground">
           <TriangleAlert className="size-3.5 shrink-0 text-primary" />
@@ -400,7 +392,12 @@ function ProvaInterna({
           })}
         </ul>
 
-        <div className="mt-6 flex items-center justify-between">
+        <div
+          className={cn(
+            "mt-6 items-center",
+            i === questoes.length - 1 ? "grid grid-cols-[1fr_auto_1fr]" : "flex justify-between",
+          )}
+        >
           <button
             type="button"
             disabled={i === 0}
@@ -409,14 +406,26 @@ function ProvaInterna({
           >
             <ChevronLeft className="size-4" /> Anterior
           </button>
-          <button
-            type="button"
-            disabled={i === questoes.length - 1}
-            onClick={() => irPara(i + 1)}
-            className="inline-flex items-center gap-1 rounded-md bg-primary px-4 py-1.5 text-sm font-semibold text-primary-foreground shadow-gold disabled:opacity-40"
-          >
-            Próxima <ChevronRight className="size-4" />
-          </button>
+          {i === questoes.length - 1 ? (
+            alt_atual !== null && (
+              <button
+                type="button"
+                onClick={() => setConfirmarFinalizar(true)}
+                className="inline-flex items-center gap-1.5 rounded-md bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground shadow-gold"
+              >
+                <Flag className="size-4" />
+                Finalizar
+              </button>
+            )
+          ) : (
+            <button
+              type="button"
+              onClick={() => irPara(i + 1)}
+              className="inline-flex items-center gap-1 rounded-md bg-primary px-4 py-1.5 text-sm font-semibold text-primary-foreground shadow-gold"
+            >
+              Próxima <ChevronRight className="size-4" />
+            </button>
+          )}
         </div>
       </section>
 
