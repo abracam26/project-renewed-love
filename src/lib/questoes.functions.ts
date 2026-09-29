@@ -185,7 +185,7 @@ export const resumoQuestoes = createServerFn({ method: "POST" })
         .from("chamados_suporte")
         .select("id", { count: "exact", head: true })
         .eq("status", "aberto"),
-      supabaseAdmin
+      db
         .from("pedidos")
         .select("id", { count: "exact", head: true })
         .eq("status", "pendente"),
