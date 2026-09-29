@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { cnpjValido, limparCnpj } from "@/lib/cnpj";
 import { cpfValido, hashCpf, limparCpf } from "@/lib/cpf";
@@ -556,7 +557,8 @@ export const atualizarPlano = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin, user } = await exigirAdmin(data.token);
     const pago = (PLANOS_PAGOS as readonly string[]).includes(data.plano);
-    const { data: r, error } = await supabaseAdmin.rpc("admin_definir_plano", {
+    const db = supabaseAdmin as unknown as SupabaseClient<any>;
+    const { data: r, error } = await db.rpc("admin_definir_plano", {
       p_user: data.userId,
       p_plano: data.plano,
       p_por: user.id,

@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import {
   ehAdmin,
@@ -25,6 +26,15 @@ import {
   type StatusPedido,
 } from "@/lib/pagamentos";
 import { acessoAtivo, hojeSaoPaulo } from "@/lib/planos";
+
+/**
+ * O módulo de pagamentos é implantado por uma migration própria e pode estar
+ * à frente do arquivo de tipos gerado. Mantém a checagem do restante do banco
+ * sem bloquear a compilação enquanto esses tipos são sincronizados.
+ */
+function bancoPagamentos(client: SupabaseAdmin) {
+  return client as unknown as SupabaseClient<any>;
+}
 
 /**
  * Planos à venda, pedidos e pagamentos (Etapa 1: o aluno faz o pedido e paga
@@ -84,7 +94,7 @@ function lerConfig(valor: string | null | undefined): ConfigPagamento {
 }
 
 async function carregarConfig(supabaseAdmin: SupabaseAdmin) {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await bancoPagamentos(supabaseAdmin)
     .from("configuracoes")
     .select("valor")
     .eq("chave", CHAVE_CONFIG)
@@ -193,7 +203,7 @@ export const planosParaAluno = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin, user } = await usuarioLogado(data.token);
     // Pendentes com prazo vencido deste aluno viram "Prazo vencido"
-    const { error: eExp } = await supabaseAdmin.rpc("expirar_pedidos_vencidos", {
+    const { error: eExp } = await bancoPagamentos(supabaseAdmin).rpc("expirar_pedidos_vencidos", {
       p_user: user.id,
     });
     erroRpc(eExp);
@@ -205,7 +215,7 @@ export const planosParaAluno = createServerFn({ method: "POST" })
       config,
       { data: pedidos, error: ePedidos },
     ] = await Promise.all([
-      supabaseAdmin
+      bancoPagamentos(supabaseAdmin)
         .from("profiles")
         .select(
           "plano, plano_validade, plano_nome, cpf, cpf_hash, cnpj, instituicao, cadastro_completo_em",
@@ -213,7 +223,7 @@ export const planosParaAluno = createServerFn({ method: "POST" })
         .eq("id", user.id)
         .maybeSingle(),
       ehAdmin(supabaseAdmin, user.id),
-      supabaseAdmin
+      bancoPagamentos(supabaseAdmin)
         .from("planos")
         .select(
           "id, nome, descricao, beneficios, tipo_acesso, duracao_quantidade, duracao_unidade, preco_centavos, destaque, ordem",
@@ -222,7 +232,7 @@ export const planosParaAluno = createServerFn({ method: "POST" })
         .order("ordem")
         .order("preco_centavos"),
       carregarConfig(supabaseAdmin),
-      supabaseAdmin
+      bancoPagamentos(supabaseAdmin)
         .from("pedidos")
         .select(CAMPOS_PEDIDO)
         .eq("user_id", user.id)
@@ -310,7 +320,7 @@ export const criarPedido = createServerFn({ method: "POST" })
     if (!config.formasManual.includes(data.metodo)) {
       throw new Error("Esta forma de pagamento não está disponível no momento.");
     }
-    const { data: r, error } = await supabaseAdmin.rpc("criar_pedido", {
+    const { data: r, error } = await bancoPagamentos(supabaseAdmin).rpc("criar_pedido", {
       p_user: user.id,
       p_plano: data.planoId,
       p_metodo: data.metodo,
@@ -332,7 +342,7 @@ export const cancelarMeuPedido = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { supabaseAdmin, user } = await usuarioLogado(data.token);
-    const { error } = await supabaseAdmin.rpc("cancelar_pedido", {
+    const { error } = await bancoPagamentos(supabaseAdmin).rpc("cancelar_pedido", {
       p_pedido: data.pedidoId,
       p_por: user.id,
       p_dono: user.id,
@@ -348,7 +358,7 @@ export const listarPlanosAdmin = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ token: tokenSchema }).parse(d))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await exigirAdmin(data.token);
-    const { data: planos, error } = await supabaseAdmin
+    const { data: planos, error } = await bancoPagamentos(supabaseAdmin)
       .from("planos")
       .select("*")
       .order("ordem")
@@ -356,7 +366,7 @@ export const listarPlanosAdmin = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     const usos = await Promise.all(
       (planos ?? []).map(async (p) => {
-        const { count, error: e } = await supabaseAdmin
+        const { count, error: e } = await bancoPagamentos(supabaseAdmin)
           .from("pedidos")
           .select("id", { count: "exact", head: true })
           .eq("plano_id", p.id);
@@ -448,8 +458,8 @@ export const salvarPlano = createServerFn({ method: "POST" })
       ativo: data.ativo,
     };
     const { error } = data.id
-      ? await supabaseAdmin.from("planos").update(row).eq("id", data.id)
-      : await supabaseAdmin.from("planos").insert(row);
+      ? await bancoPagamentos(supabaseAdmin).from("planos").update(row).eq("id", data.id)
+      : await bancoPagamentos(supabaseAdmin).from("planos").insert(row);
     if (error) throw new Error(error.message);
     return { ok: true as const };
   });
@@ -458,14 +468,17 @@ export const excluirPlano = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ token: tokenSchema, id: z.string().uuid() }).parse(d))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await exigirAdmin(data.token);
-    const { count } = await supabaseAdmin
+    const { count } = await bancoPagamentos(supabaseAdmin)
       .from("pedidos")
       .select("id", { count: "exact", head: true })
       .eq("plano_id", data.id);
     if ((count ?? 0) > 0) {
       throw new Error("Este plano já tem pedidos e não pode ser excluído. Desative-o.");
     }
-    const { error } = await supabaseAdmin.from("planos").delete().eq("id", data.id);
+    const { error } = await bancoPagamentos(supabaseAdmin)
+      .from("planos")
+      .delete()
+      .eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true as const };
   });
@@ -531,7 +544,7 @@ export const salvarConfigPagamento = createServerFn({ method: "POST" })
       instrucoes,
       pagarme: { chave_publica: data.pagarmeChavePublica },
     });
-    const { error } = await supabaseAdmin.from("configuracoes").upsert(
+    const { error } = await bancoPagamentos(supabaseAdmin).from("configuracoes").upsert(
       {
         chave: CHAVE_CONFIG,
         valor,
@@ -552,11 +565,12 @@ const POR_PAGINA = 30;
 export type PedidoAdmin = Awaited<ReturnType<typeof montarPedidosAdmin>>[number];
 
 async function montarPedidosAdmin(supabaseAdmin: SupabaseAdmin, linhas: PedidoLinha[]) {
+  const db = bancoPagamentos(supabaseAdmin);
   const ids = linhas.map((p) => p.id);
   const usuarios = [...new Set(linhas.map((p) => p.user_id).filter((x): x is string => !!x))];
   const [pagsRes, perfisRes, pendRes] = await Promise.all([
     ids.length
-      ? supabaseAdmin
+      ? db
           .from("pagamentos")
           .select(
             "id, pedido_id, gateway, metodo_pagamento, valor, status, paid_at, created_at, requer_revisao, motivo_revisao, metadata",
@@ -565,14 +579,14 @@ async function montarPedidosAdmin(supabaseAdmin: SupabaseAdmin, linhas: PedidoLi
           .order("created_at")
       : null,
     usuarios.length
-      ? supabaseAdmin
+      ? db
           .from("profiles")
           .select("id, plano, plano_validade, plano_nome")
           .in("id", usuarios)
       : null,
     // Pedido do mesmo aluno aguardando pagamento (aviso ao confirmar outro pedido)
     usuarios.length
-      ? supabaseAdmin
+      ? db
           .from("pedidos")
           .select("id, user_id, codigo")
           .eq("status", "pendente")
@@ -661,11 +675,12 @@ export const listarPedidos = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await exigirAdmin(data.token);
-    const { error: eExp } = await supabaseAdmin.rpc("expirar_pedidos_vencidos", {});
+    const db = bancoPagamentos(supabaseAdmin);
+    const { error: eExp } = await db.rpc("expirar_pedidos_vencidos", {});
     erroRpc(eExp);
 
     const contar = (status: StatusPedido[]) =>
-      supabaseAdmin
+      db
         .from("pedidos")
         .select("id", { count: "exact", head: true })
         .in("status", status);
@@ -674,7 +689,7 @@ export const listarPedidos = createServerFn({ method: "POST" })
       contar(["pago"]),
       contar(["cancelado", "expirado"]),
       contar(["estornado"]),
-      supabaseAdmin.from("pagamentos").select("pedido_id").eq("requer_revisao", true).limit(1000),
+      db.from("pagamentos").select("pedido_id").eq("requer_revisao", true).limit(1000),
     ]);
     for (const r of [c1, c2, c3, c4, rev]) {
       if (r.error) throw new Error(r.error.message);
@@ -684,7 +699,7 @@ export const listarPedidos = createServerFn({ method: "POST" })
     // Busca por código, nome ou e-mail (sem caracteres que quebram o filtro)
     const busca = data.busca.replace(/[,()%*\\]/g, " ").trim();
     const montarConsulta = (colunas: string, soContar: boolean) => {
-      let q = supabaseAdmin.from("pedidos").select(colunas, { count: "exact", head: soContar });
+      let q = db.from("pedidos").select(colunas, { count: "exact", head: soContar });
       if (data.filtro === "revisao") {
         q = q.in("id", idsRevisao.length ? idsRevisao : ["00000000-0000-0000-0000-000000000000"]);
       } else if (data.filtro === "cancelado") {
@@ -766,7 +781,7 @@ export const confirmarPagamento = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { supabaseAdmin, user } = await exigirAdmin(data.token);
-    const { data: r, error } = await supabaseAdmin.rpc("registrar_pagamento_pedido", {
+    const { data: r, error } = await bancoPagamentos(supabaseAdmin).rpc("registrar_pagamento_pedido", {
       p_pedido: data.pedidoId,
       p_origem: "admin",
       p_por: user.id,
@@ -794,7 +809,7 @@ export const cancelarPedidoAdmin = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { supabaseAdmin, user } = await exigirAdmin(data.token);
-    const { error } = await supabaseAdmin.rpc("cancelar_pedido", {
+    const { error } = await bancoPagamentos(supabaseAdmin).rpc("cancelar_pedido", {
       p_pedido: data.pedidoId,
       p_por: user.id,
       ...(data.motivo ? { p_motivo: data.motivo } : {}),
@@ -820,7 +835,7 @@ export const estornarPedido = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { supabaseAdmin, user } = await exigirAdmin(data.token);
-    const { data: r, error } = await supabaseAdmin.rpc("estornar_pedido", {
+    const { data: r, error } = await bancoPagamentos(supabaseAdmin).rpc("estornar_pedido", {
       p_pedido: data.pedidoId,
       p_por: user.id,
       p_remover_acesso: data.removerAcesso,
@@ -856,7 +871,7 @@ export const resolverRevisao = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { supabaseAdmin, user } = await exigirAdmin(data.token);
-    const { data: r, error } = await supabaseAdmin.rpc("resolver_revisao_pagamento", {
+    const { data: r, error } = await bancoPagamentos(supabaseAdmin).rpc("resolver_revisao_pagamento", {
       p_pagamento: data.pagamentoId,
       p_por: user.id,
       p_observacao: data.observacao,
@@ -878,18 +893,19 @@ export const pedidosDoUsuario = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await exigirAdmin(data.token);
-    const { error: eExp } = await supabaseAdmin.rpc("expirar_pedidos_vencidos", {
+    const db = bancoPagamentos(supabaseAdmin);
+    const { error: eExp } = await db.rpc("expirar_pedidos_vencidos", {
       p_user: data.userId,
     });
     erroRpc(eExp);
     const [{ data: pedidos, error }, { data: historico, error: eHist }] = await Promise.all([
-      supabaseAdmin
+      db
         .from("pedidos")
         .select(CAMPOS_PEDIDO)
         .eq("user_id", data.userId)
         .order("created_at", { ascending: false })
         .limit(20),
-      supabaseAdmin
+      db
         .from("historico_acesso")
         .select(
           "id, origem, plano_antes, validade_antes, plano_depois, validade_depois, observacao, created_at",
@@ -949,7 +965,7 @@ export const registrarVenda = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { supabaseAdmin, user } = await exigirAdmin(data.token);
-    const { data: r, error } = await supabaseAdmin.rpc("registrar_venda_admin", {
+    const { data: r, error } = await bancoPagamentos(supabaseAdmin).rpc("registrar_venda_admin", {
       p_user: data.userId,
       p_plano: data.planoId,
       p_metodo: data.metodo,
