@@ -381,6 +381,7 @@ export type Database = {
           created_at: string
           dificuldade: string
           enunciado: string
+          exame: string
           explicacao: string | null
           fonte_artigo: string | null
           fonte_norma: string | null
@@ -398,7 +399,6 @@ export type Database = {
           tema_nome: string
           updated_at: string
           versao_material: string
-          exame: string
         }
         Insert: {
           alternativas: Json
@@ -406,6 +406,7 @@ export type Database = {
           created_at?: string
           dificuldade: string
           enunciado: string
+          exame?: string
           explicacao?: string | null
           fonte_artigo?: string | null
           fonte_norma?: string | null
@@ -423,7 +424,6 @@ export type Database = {
           tema_nome: string
           updated_at?: string
           versao_material?: string
-          exame?: string
         }
         Update: {
           alternativas?: Json
@@ -431,6 +431,7 @@ export type Database = {
           created_at?: string
           dificuldade?: string
           enunciado?: string
+          exame?: string
           explicacao?: string | null
           fonte_artigo?: string | null
           fonte_norma?: string | null
@@ -448,7 +449,6 @@ export type Database = {
           tema_nome?: string
           updated_at?: string
           versao_material?: string
-          exame?: string
         }
         Relationships: [
           {
@@ -650,35 +650,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      contar_questoes_por_exame_tema: {
-        Args: never
-        Returns: {
-          ativas: number
-          exame: string
-          tema: number
-          total: number
-        }[]
-      }
-      desempenho_aluno: {
-        Args: { p_user_id: string }
-        Returns: {
-          acertos: number
-          chave: string
-          dimensao: string
-          total: number
-        }[]
-      }
-      ranking_alunos: {
-        Args: { p_dias?: number }
-        Returns: {
-          media_pct: number
-          melhor_pct: number
-          nome: string
-          posicao: number
-          simulados: number
-          user_id: string
-        }[]
-      }
       admin_listar_usuarios: {
         Args: {
           p_busca?: string
@@ -705,11 +676,29 @@ export type Database = {
           user_id: string
         }[]
       }
+      contar_questoes_por_exame_tema: {
+        Args: never
+        Returns: {
+          ativas: number
+          exame: string
+          tema: number
+          total: number
+        }[]
+      }
       contar_questoes_por_tema: {
         Args: never
         Returns: {
           ativas: number
           tema: number
+          total: number
+        }[]
+      }
+      desempenho_aluno: {
+        Args: { p_user_id: string }
+        Returns: {
+          acertos: number
+          chave: string
+          dimensao: string
           total: number
         }[]
       }
@@ -731,6 +720,17 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      ranking_alunos: {
+        Args: { p_dias?: number }
+        Returns: {
+          media_pct: number
+          melhor_pct: number
+          nome: string
+          posicao: number
+          simulados: number
+          user_id: string
+        }[]
       }
       sortear_questoes_simulado: {
         Args: { p_tipo: string; p_user_id: string }
