@@ -53,45 +53,6 @@ export type Database = {
         }
         Relationships: []
       }
-      clientes: {
-        Row: {
-          cpf_cnpj: string
-          created_at: string
-          email: string | null
-          external_customer_id: string | null
-          gateway: string
-          id: string
-          nome: string
-          telefone: string | null
-          updated_at: string
-          user_id: string | null
-        }
-        Insert: {
-          cpf_cnpj: string
-          created_at?: string
-          email?: string | null
-          external_customer_id?: string | null
-          gateway?: string
-          id?: string
-          nome: string
-          telefone?: string | null
-          updated_at?: string
-          user_id?: string | null
-        }
-        Update: {
-          cpf_cnpj?: string
-          created_at?: string
-          email?: string | null
-          external_customer_id?: string | null
-          gateway?: string
-          id?: string
-          nome?: string
-          telefone?: string | null
-          updated_at?: string
-          user_id?: string | null
-        }
-        Relationships: []
-      }
       configuracoes: {
         Row: {
           chave: string
@@ -236,56 +197,6 @@ export type Database = {
         }
         Relationships: []
       }
-      historico_acesso: {
-        Row: {
-          created_at: string
-          feito_por: string | null
-          id: string
-          observacao: string | null
-          origem: string
-          pedido_id: string | null
-          plano_antes: string | null
-          plano_depois: string | null
-          user_id: string
-          validade_antes: string | null
-          validade_depois: string | null
-        }
-        Insert: {
-          created_at?: string
-          feito_por?: string | null
-          id?: string
-          observacao?: string | null
-          origem: string
-          pedido_id?: string | null
-          plano_antes?: string | null
-          plano_depois?: string | null
-          user_id: string
-          validade_antes?: string | null
-          validade_depois?: string | null
-        }
-        Update: {
-          created_at?: string
-          feito_por?: string | null
-          id?: string
-          observacao?: string | null
-          origem?: string
-          pedido_id?: string | null
-          plano_antes?: string | null
-          plano_depois?: string | null
-          user_id?: string
-          validade_antes?: string | null
-          validade_depois?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "historico_acesso_pedido_id_fkey"
-            columns: ["pedido_id"]
-            isOneToOne: false
-            referencedRelation: "pedidos"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       importacoes: {
         Row: {
           arquivo: string
@@ -406,278 +317,6 @@ export type Database = {
         }
         Relationships: []
       }
-      pagamentos: {
-        Row: {
-          created_at: string
-          expira_em: string | null
-          external_payment_id: string | null
-          gateway: string
-          id: string
-          metadata: Json
-          metodo_pagamento: string
-          motivo_revisao: string | null
-          paid_at: string | null
-          parcelas: number
-          pedido_id: string
-          registrado_por: string | null
-          requer_revisao: boolean
-          revisao_resolvida_em: string | null
-          revisao_resolvida_por: string | null
-          status: string
-          status_gateway: string | null
-          updated_at: string
-          valor: number
-        }
-        Insert: {
-          created_at?: string
-          expira_em?: string | null
-          external_payment_id?: string | null
-          gateway: string
-          id?: string
-          metadata?: Json
-          metodo_pagamento: string
-          motivo_revisao?: string | null
-          paid_at?: string | null
-          parcelas?: number
-          pedido_id: string
-          registrado_por?: string | null
-          requer_revisao?: boolean
-          revisao_resolvida_em?: string | null
-          revisao_resolvida_por?: string | null
-          status?: string
-          status_gateway?: string | null
-          updated_at?: string
-          valor: number
-        }
-        Update: {
-          created_at?: string
-          expira_em?: string | null
-          external_payment_id?: string | null
-          gateway?: string
-          id?: string
-          metadata?: Json
-          metodo_pagamento?: string
-          motivo_revisao?: string | null
-          paid_at?: string | null
-          parcelas?: number
-          pedido_id?: string
-          registrado_por?: string | null
-          requer_revisao?: boolean
-          revisao_resolvida_em?: string | null
-          revisao_resolvida_por?: string | null
-          status?: string
-          status_gateway?: string | null
-          updated_at?: string
-          valor?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "pagamentos_pedido_id_fkey"
-            columns: ["pedido_id"]
-            isOneToOne: false
-            referencedRelation: "pedidos"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      pedidos: {
-        Row: {
-          acesso_removido: boolean | null
-          cancelado_em: string | null
-          cancelado_por: string | null
-          chave_venda: string | null
-          cliente_id: string
-          codigo: string
-          comprador_documento: string
-          comprador_email: string | null
-          comprador_nome: string
-          comprador_tipo: string
-          created_at: string
-          criado_por: string | null
-          dias_concedidos: number | null
-          estornado_em: string | null
-          estornado_por: string | null
-          expira_em: string | null
-          external_order_id: string | null
-          gateway: string
-          id: string
-          liberado_em: string | null
-          liberado_por: string | null
-          metodo_pagamento: string | null
-          motivo_cancelamento: string | null
-          motivo_estorno: string | null
-          origem: string
-          plano_anterior: string | null
-          plano_concedido: string | null
-          plano_duracao_quantidade: number
-          plano_duracao_unidade: string
-          plano_id: string
-          plano_nome: string
-          plano_nome_anterior: string | null
-          plano_tipo_acesso: string
-          status: string
-          teste: boolean
-          updated_at: string
-          user_id: string | null
-          validade_anterior: string | null
-          validade_concedida: string | null
-          valor_total: number
-        }
-        Insert: {
-          acesso_removido?: boolean | null
-          cancelado_em?: string | null
-          cancelado_por?: string | null
-          chave_venda?: string | null
-          cliente_id: string
-          codigo?: string
-          comprador_documento: string
-          comprador_email?: string | null
-          comprador_nome: string
-          comprador_tipo: string
-          created_at?: string
-          criado_por?: string | null
-          dias_concedidos?: number | null
-          estornado_em?: string | null
-          estornado_por?: string | null
-          expira_em?: string | null
-          external_order_id?: string | null
-          gateway?: string
-          id?: string
-          liberado_em?: string | null
-          liberado_por?: string | null
-          metodo_pagamento?: string | null
-          motivo_cancelamento?: string | null
-          motivo_estorno?: string | null
-          origem?: string
-          plano_anterior?: string | null
-          plano_concedido?: string | null
-          plano_duracao_quantidade: number
-          plano_duracao_unidade: string
-          plano_id: string
-          plano_nome: string
-          plano_nome_anterior?: string | null
-          plano_tipo_acesso: string
-          status?: string
-          teste?: boolean
-          updated_at?: string
-          user_id?: string | null
-          validade_anterior?: string | null
-          validade_concedida?: string | null
-          valor_total: number
-        }
-        Update: {
-          acesso_removido?: boolean | null
-          cancelado_em?: string | null
-          cancelado_por?: string | null
-          chave_venda?: string | null
-          cliente_id?: string
-          codigo?: string
-          comprador_documento?: string
-          comprador_email?: string | null
-          comprador_nome?: string
-          comprador_tipo?: string
-          created_at?: string
-          criado_por?: string | null
-          dias_concedidos?: number | null
-          estornado_em?: string | null
-          estornado_por?: string | null
-          expira_em?: string | null
-          external_order_id?: string | null
-          gateway?: string
-          id?: string
-          liberado_em?: string | null
-          liberado_por?: string | null
-          metodo_pagamento?: string | null
-          motivo_cancelamento?: string | null
-          motivo_estorno?: string | null
-          origem?: string
-          plano_anterior?: string | null
-          plano_concedido?: string | null
-          plano_duracao_quantidade?: number
-          plano_duracao_unidade?: string
-          plano_id?: string
-          plano_nome?: string
-          plano_nome_anterior?: string | null
-          plano_tipo_acesso?: string
-          status?: string
-          teste?: boolean
-          updated_at?: string
-          user_id?: string | null
-          validade_anterior?: string | null
-          validade_concedida?: string | null
-          valor_total?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "pedidos_cliente_id_fkey"
-            columns: ["cliente_id"]
-            isOneToOne: false
-            referencedRelation: "clientes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "pedidos_plano_id_fkey"
-            columns: ["plano_id"]
-            isOneToOne: false
-            referencedRelation: "planos"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      planos: {
-        Row: {
-          ativo: boolean
-          beneficios: string[]
-          created_at: string
-          descricao: string
-          destaque: boolean
-          duracao_quantidade: number
-          duracao_unidade: string
-          formas_pagamento: string[]
-          id: string
-          nome: string
-          ordem: number
-          parcelas_max: number
-          preco_centavos: number
-          tipo_acesso: string
-          updated_at: string
-        }
-        Insert: {
-          ativo?: boolean
-          beneficios?: string[]
-          created_at?: string
-          descricao?: string
-          destaque?: boolean
-          duracao_quantidade: number
-          duracao_unidade: string
-          formas_pagamento?: string[]
-          id?: string
-          nome: string
-          ordem?: number
-          parcelas_max?: number
-          preco_centavos?: number
-          tipo_acesso: string
-          updated_at?: string
-        }
-        Update: {
-          ativo?: boolean
-          beneficios?: string[]
-          created_at?: string
-          descricao?: string
-          destaque?: boolean
-          duracao_quantidade?: number
-          duracao_unidade?: string
-          formas_pagamento?: string[]
-          id?: string
-          nome?: string
-          ordem?: number
-          parcelas_max?: number
-          preco_centavos?: number
-          tipo_acesso?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -692,7 +331,6 @@ export type Database = {
           instituicao: string | null
           nome_completo: string | null
           plano: string
-          plano_nome: string | null
           plano_validade: string | null
           show_in_ranking: boolean
           updated_at: string
@@ -711,7 +349,6 @@ export type Database = {
           instituicao?: string | null
           nome_completo?: string | null
           plano?: string
-          plano_nome?: string | null
           plano_validade?: string | null
           show_in_ranking?: boolean
           updated_at?: string
@@ -730,7 +367,6 @@ export type Database = {
           instituicao?: string | null
           nome_completo?: string | null
           plano?: string
-          plano_nome?: string | null
           plano_validade?: string | null
           show_in_ranking?: boolean
           updated_at?: string
@@ -1014,17 +650,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      admin_definir_plano: {
-        Args: {
-          p_plano: string
-          p_plano_esperado?: string
-          p_por: string
-          p_user: string
-          p_validade?: string
-          p_validade_esperada?: string
-        }
-        Returns: Json
-      }
       admin_listar_usuarios: {
         Args: {
           p_busca?: string
@@ -1051,29 +676,6 @@ export type Database = {
           user_id: string
         }[]
       }
-      apagar_pedidos_nao_pagos: {
-        Args: { p_user: string }
-        Returns: number
-      }
-      calcular_nova_validade: {
-        Args: {
-          p_plano_atual: string
-          p_hoje?: string
-          p_quantidade: number
-          p_unidade: string
-          p_validade_atual: string
-        }
-        Returns: string
-      }
-      cancelar_pedido: {
-        Args: {
-          p_dono?: string
-          p_motivo?: string
-          p_pedido: string
-          p_por: string
-        }
-        Returns: Json
-      }
       contar_questoes_por_exame_tema: {
         Args: never
         Returns: {
@@ -1090,22 +692,6 @@ export type Database = {
           tema: number
           total: number
         }[]
-      }
-      criar_pedido: {
-        Args: {
-          p_chave?: string
-          p_comprador_tipo?: string
-          p_manter_esperado?: boolean
-          p_metodo: string
-          p_origem?: string
-          p_pendente_esperado?: string
-          p_plano: string
-          p_por?: string
-          p_prazo_dias?: number
-          p_user: string
-          p_valor?: number
-        }
-        Returns: Json
       }
       desempenho_aluno: {
         Args: { p_user_id: string }
@@ -1128,37 +714,12 @@ export type Database = {
           total_simulados: number
         }[]
       }
-      estornar_pedido: {
-        Args: {
-          p_motivo: string
-          p_pedido: string
-          p_por: string
-          p_remover_acesso: boolean
-        }
-        Returns: Json
-      }
-      expirar_pedidos_vencidos: {
-        Args: { p_user?: string }
-        Returns: number
-      }
-      expurgar_pedidos_antigos: {
-        Args: { p_antes: string }
-        Returns: number
-      }
-      gerar_codigo_pedido: {
-        Args: never
-        Returns: string
-      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
-      }
-      hoje_sao_paulo: {
-        Args: never
-        Returns: string
       }
       ranking_alunos: {
         Args: { p_dias?: number }
@@ -1170,48 +731,6 @@ export type Database = {
           simulados: number
           user_id: string
         }[]
-      }
-      registrar_pagamento_pedido: {
-        Args: {
-          p_aceitar_valor_diferente?: boolean
-          p_external_payment_id?: string
-          p_gateway: string
-          p_metadata?: Json
-          p_metodo: string
-          p_origem: string
-          p_pagamento_id?: string
-          p_pago_em?: string
-          p_parcelas?: number
-          p_pedido: string
-          p_por?: string
-          p_valor: number
-        }
-        Returns: Json
-      }
-      registrar_venda_admin: {
-        Args: {
-          p_aceitar_valor_diferente?: boolean
-          p_chave: string
-          p_comprador_tipo?: string
-          p_metadata?: Json
-          p_metodo: string
-          p_pago_em?: string
-          p_pendente_esperado?: string
-          p_plano: string
-          p_por: string
-          p_user: string
-          p_valor: number
-        }
-        Returns: Json
-      }
-      resolver_revisao_pagamento: {
-        Args: {
-          p_devolvido?: boolean
-          p_observacao: string
-          p_pagamento: string
-          p_por: string
-        }
-        Returns: Json
       }
       sortear_questoes_simulado: {
         Args: { p_tipo: string; p_user_id: string }
