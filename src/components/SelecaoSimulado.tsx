@@ -155,7 +155,7 @@ export function SelecaoSimulado({
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Teste grátis: qual prova?</DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-popover-foreground/85">
               Você tem direito a um único teste grátis, de 10 questões. Escolha a prova que quer
               experimentar.
             </DialogDescription>
