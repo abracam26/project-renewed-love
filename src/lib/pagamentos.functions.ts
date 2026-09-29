@@ -202,8 +202,63 @@ export const planosParaAluno = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ token: tokenSchema }).parse(d))
   .handler(async ({ data }) => {
     const { supabaseAdmin, user } = await usuarioLogado(data.token);
+    const db = bancoPagamentos(supabaseAdmin);
+    const { error: eModulo } = await db
+      .from("planos")
+      .select("id", { count: "exact", head: true });
+
+    // Projetos atualizados em etapas podem abrir esta página antes da migration
+    // do módulo financeiro. Nesse caso, mantém conta e teste grátis acessíveis,
+    // mas não oferece uma compra que o banco ainda não conseguiria registrar.
+    if (eModulo?.code === "42P01" || eModulo?.code === "PGRST205") {
+      const [{ data: perfil, error: ePerfil }, admin] = await Promise.all([
+        db
+          .from("profiles")
+          .select(
+            "plano, plano_validade, plano_nome, cpf, cpf_hash, cnpj, instituicao, cadastro_completo_em",
+          )
+          .eq("id", user.id)
+          .maybeSingle(),
+        ehAdmin(supabaseAdmin, user.id),
+      ]);
+      if (ePerfil) throw new Error(ePerfil.message);
+
+      let gratuidadeUsada = false;
+      if (perfil?.cpf_hash) {
+        const { data: usada } = await supabaseAdmin
+          .from("gratuidade_usada")
+          .select("usada_em")
+          .eq("cpf_hash", perfil.cpf_hash)
+          .maybeSingle();
+        gratuidadeUsada = Boolean(usada);
+      }
+
+      return {
+        planos: [],
+        atual: {
+          plano: perfil?.plano ?? "gratis",
+          planoNome: perfil?.plano_nome ?? null,
+          planoValidade: perfil?.plano_validade ?? null,
+          acessoAtivo: acessoAtivo(perfil?.plano, perfil?.plano_validade),
+          bloqueado: perfil?.plano === "inativo",
+          cadastroCompleto: Boolean(perfil?.cadastro_completo_em && perfil?.cpf),
+          isAdmin: admin,
+          gratuidadeUsada,
+        },
+        comprador: {
+          cpf: mascararDocumento(perfil?.cpf),
+          cnpj: perfil?.cnpj ? mascararDocumento(perfil.cnpj) : null,
+          empresa: perfil?.instituicao ?? null,
+        },
+        formas: [],
+        prazoDias: 0,
+        pedidos: [],
+      };
+    }
+    if (eModulo) throw new Error(eModulo.message);
+
     // Pendentes com prazo vencido deste aluno viram "Prazo vencido"
-    const { error: eExp } = await bancoPagamentos(supabaseAdmin).rpc("expirar_pedidos_vencidos", {
+    const { error: eExp } = await db.rpc("expirar_pedidos_vencidos", {
       p_user: user.id,
     });
     erroRpc(eExp);
