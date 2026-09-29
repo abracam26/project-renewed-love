@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   ClipboardList,
+  CreditCard,
   Database,
   FileText,
   FileUp,
@@ -113,6 +114,19 @@ function PainelAdmin({ token }: { token: string }) {
             >
               <Flag className="size-4" />
               Reportes de questões{d && d.reportesAbertos > 0 ? ` (${d.reportesAbertos})` : ""}
+            </Link>
+            <Link
+              to="/admin/pagamentos"
+              className={`inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-semibold hover:bg-accent ${
+                d && (d.pedidosPendentes > 0 || d.pagamentosRevisao > 0)
+                  ? "border-destructive/60 text-destructive"
+                  : "border-input bg-card text-card-foreground"
+              }`}
+            >
+              <CreditCard className="size-4" />
+              Planos e pagamentos
+              {d && d.pedidosPendentes > 0 ? ` (${d.pedidosPendentes} aguardando)` : ""}
+              {d && d.pagamentosRevisao > 0 ? ` · ${d.pagamentosRevisao} para revisar` : ""}
             </Link>
             <Link
               to="/admin/usuarios"

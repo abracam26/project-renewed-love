@@ -149,6 +149,8 @@ export const resumoQuestoes = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ token: tokenSchema }).parse(d))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await exigirAdmin(data.token);
+    // Pedidos com prazo vencido não contam como "aguardando" (mesma regra da lista)
+    await supabaseAdmin.rpc("expirar_pedidos_vencidos", {});
 
     const [
       { data: porTema, error: e1 },
@@ -157,6 +159,8 @@ export const resumoQuestoes = createServerFn({ method: "POST" })
       { count: pendentes },
       { count: reportesAbertos },
       { count: chamadosAbertos },
+      { count: pedidosPendentes },
+      { data: revisao },
     ] = await Promise.all([
       supabaseAdmin.rpc("contar_questoes_por_exame_tema"),
       supabaseAdmin
@@ -179,6 +183,11 @@ export const resumoQuestoes = createServerFn({ method: "POST" })
         .from("chamados_suporte")
         .select("id", { count: "exact", head: true })
         .eq("status", "aberto"),
+      supabaseAdmin
+        .from("pedidos")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "pendente"),
+      supabaseAdmin.from("pagamentos").select("pedido_id").eq("requer_revisao", true).limit(1000),
     ]);
     if (e1) throw new Error(e1.message);
     if (e2) throw new Error(e2.message);
@@ -200,6 +209,9 @@ export const resumoQuestoes = createServerFn({ method: "POST" })
       pendentes: pendentes ?? 0,
       reportesAbertos: reportesAbertos ?? 0,
       chamadosAbertos: chamadosAbertos ?? 0,
+      pedidosPendentes: pedidosPendentes ?? 0,
+      // Pedidos (não pagamentos) com revisão pendente: o mesmo número da aba em Planos e pagamentos
+      pagamentosRevisao: new Set((revisao ?? []).map((r) => r.pedido_id)).size,
       importacoes: importacoes ?? [],
     };
   });

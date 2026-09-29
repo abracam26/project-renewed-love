@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -17,7 +17,7 @@ import { formatarCnpj } from "@/lib/cnpj";
 import { mascararCpf } from "@/lib/cpf";
 import { mensagemErro } from "@/lib/erros";
 import { CONTROLADOR } from "@/lib/juridico";
-import { formatarDataBR } from "@/lib/planos";
+import { formatarDataBR, nomeDoPlano } from "@/lib/planos";
 import { definirParticipacaoRanking, meuPerfil } from "@/lib/usuarios.functions";
 import { cn } from "@/lib/utils";
 
@@ -218,7 +218,7 @@ function Perfil() {
           {p.acessoAtivo ? (
             <div className="mt-6 rounded-md border border-success/40 bg-success/10 px-4 py-4">
               <p className="text-sm font-semibold text-success">
-                Plano {p.plano === "anual" ? "anual" : "mensal"} ativo
+                Plano {nomeDoPlano(p.plano, p.planoNome)} ativo
               </p>
               <p className="mt-1 text-xs text-card-foreground">
                 Acesso a todos os simulados até {formatarDataBR(p.planoValidade)}.
@@ -243,16 +243,29 @@ function Perfil() {
               </p>
             </div>
           )}
-          <a
-            href={`mailto:${CONTROLADOR.emailContato}?subject=${encodeURIComponent("Plano do Simulador ABT")}`}
-            className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            <Mail className="size-4" />
-            {p.acessoAtivo ? "Falar com a ABRACAM sobre o plano" : "Contratar ou renovar plano"}
-          </a>
-          <p className="mt-2 text-center text-[11px] text-muted-foreground">
-            A contratação e a renovação são feitas diretamente com a ABRACAM.
-          </p>
+          {p.plano === "inativo" ? (
+            <a
+              href={`mailto:${CONTROLADOR.emailContato}?subject=${encodeURIComponent("Plano do Simulador ABT")}`}
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              <Mail className="size-4" />
+              Falar com a ABRACAM
+            </a>
+          ) : (
+            <Link
+              to="/planos"
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              <CreditCard className="size-4" />
+              {p.acessoAtivo ? "Renovar ou ver meus pedidos" : "Contratar plano"}
+            </Link>
+          )}
+          {/* Conta bloqueada: um pagamento não libera o acesso, então não promete isso */}
+          {p.plano !== "inativo" && (
+            <p className="mt-2 text-center text-[11px] text-muted-foreground">
+              O acesso é liberado assim que a ABRACAM confirma o pagamento.
+            </p>
+          )}
         </section>
       </div>
     </div>

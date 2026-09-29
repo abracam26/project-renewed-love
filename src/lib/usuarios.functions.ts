@@ -166,16 +166,18 @@ export const statusConta = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const supabaseAdmin = await servidor();
     const user = await usuarioDoToken(supabaseAdmin, data.token);
-    const [{ data: perfil }, admin] = await Promise.all([
+    const [{ data: perfil, error: ePerfil }, admin] = await Promise.all([
       supabaseAdmin
         .from("profiles")
         .select(
-          "nome_completo, full_name, cpf, cpf_hash, instituicao, plano, plano_validade, cadastro_completo_em",
+          "nome_completo, full_name, cpf, cpf_hash, instituicao, plano, plano_validade, plano_nome, cadastro_completo_em",
         )
         .eq("id", user.id)
         .maybeSingle(),
       ehAdmin(supabaseAdmin, user.id),
     ]);
+    // Erro de leitura não pode parecer "cadastro incompleto" (travaria o aluno no formulário)
+    if (ePerfil) throw new Error(ePerfil.message);
     const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
     const nomeMeta =
       (typeof meta["full_name"] === "string" && meta["full_name"]) ||
@@ -188,6 +190,7 @@ export const statusConta = createServerFn({ method: "POST" })
       cadastroCompleto: Boolean(perfil?.cadastro_completo_em && perfil?.cpf),
       sugestaoNome: perfil?.nome_completo ?? perfil?.full_name ?? nomeMeta,
       plano: perfil?.plano ?? "gratis",
+      planoNome: perfil?.plano_nome ?? null,
       planoValidade: perfil?.plano_validade ?? null,
       acessoAtivo: acessoAtivo(perfil?.plano, perfil?.plano_validade),
     };
@@ -205,7 +208,7 @@ export const meuPerfil = createServerFn({ method: "POST" })
       supabaseAdmin
         .from("profiles")
         .select(
-          "nome_completo, full_name, username, email, cpf, cpf_hash, cnpj, instituicao, plano, plano_validade, cadastro_completo_em, created_at, show_in_ranking",
+          "nome_completo, full_name, username, email, cpf, cpf_hash, cnpj, instituicao, plano, plano_validade, plano_nome, cadastro_completo_em, created_at, show_in_ranking",
         )
         .eq("id", user.id)
         .maybeSingle(),
@@ -237,6 +240,7 @@ export const meuPerfil = createServerFn({ method: "POST" })
       cadastroCompletoEm: perfil?.cadastro_completo_em ?? null,
       provedores,
       plano: perfil?.plano ?? "gratis",
+      planoNome: perfil?.plano_nome ?? null,
       planoValidade: perfil?.plano_validade ?? null,
       acessoAtivo: acessoAtivo(perfil?.plano, perfil?.plano_validade),
       isAdmin: admin,
@@ -336,11 +340,12 @@ export const completarCadastro = createServerFn({ method: "POST" })
     const supabaseAdmin = await servidor();
     const user = await usuarioDoToken(supabaseAdmin, data.token);
 
-    const { data: perfil } = await supabaseAdmin
+    const { data: perfil, error: eLeitura } = await supabaseAdmin
       .from("profiles")
       .select("cpf, cpf_hash, cadastro_completo_em")
       .eq("id", user.id)
       .maybeSingle();
+    if (eLeitura) throw new Error(eLeitura.message);
     if (perfil?.cpf && perfil.cadastro_completo_em) {
       throw new Error("Seu cadastro já está completo. Para alterar dados, fale com a ABRACAM.");
     }
@@ -431,7 +436,7 @@ export const detalheUsuario = createServerFn({ method: "POST" })
         supabaseAdmin
           .from("profiles")
           .select(
-            "id, nome_completo, full_name, username, email, cpf, cpf_hash, cnpj, instituicao, plano, plano_validade, cadastro_completo_em, created_at",
+            "id, nome_completo, full_name, username, email, cpf, cpf_hash, cnpj, instituicao, plano, plano_validade, plano_nome, cadastro_completo_em, created_at",
           )
           .eq("id", data.userId)
           .maybeSingle(),
@@ -471,6 +476,7 @@ export const detalheUsuario = createServerFn({ method: "POST" })
       cnpj: perfil.cnpj,
       instituicao: perfil.instituicao,
       plano: perfil.plano,
+      planoNome: perfil.plano_nome,
       planoValidade: perfil.plano_validade,
       acessoAtivo: acessoAtivo(perfil.plano, perfil.plano_validade),
       cadastroCompleto: Boolean(perfil.cadastro_completo_em && perfil.cpf),
@@ -529,6 +535,12 @@ export const atualizarPlano = createServerFn({ method: "POST" })
           .regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida.")
           .nullable()
           .optional(),
+        /** Plano e validade que a ficha mostrava ao abrir (evita apagar dias pagos no meio). */
+        planoEsperado: z.string(),
+        validadeEsperada: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .nullable(),
       })
       .superRefine((v, ctx) => {
         if ((PLANOS_PAGOS as readonly string[]).includes(v.plano) && !v.validade) {
@@ -542,12 +554,17 @@ export const atualizarPlano = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await exigirAdmin(data.token);
+    const { supabaseAdmin, user } = await exigirAdmin(data.token);
     const pago = (PLANOS_PAGOS as readonly string[]).includes(data.plano);
-    const { error } = await supabaseAdmin
-      .from("profiles")
-      .update({ plano: data.plano, plano_validade: pago ? (data.validade ?? null) : null })
-      .eq("id", data.userId);
+    const { data: r, error } = await supabaseAdmin.rpc("admin_definir_plano", {
+      p_user: data.userId,
+      p_plano: data.plano,
+      p_por: user.id,
+      ...(pago && data.validade ? { p_validade: data.validade } : {}),
+      p_plano_esperado: data.planoEsperado,
+      ...(data.validadeEsperada ? { p_validade_esperada: data.validadeEsperada } : {}),
+    });
     if (error) throw new Error(error.message);
-    return { ok: true as const };
+    const res = (r ?? {}) as { pedidos_cancelados?: string[] };
+    return { ok: true as const, pedidosCancelados: res.pedidos_cancelados ?? [] };
   });

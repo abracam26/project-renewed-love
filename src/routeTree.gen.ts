@@ -23,6 +23,7 @@ import { Route as TermosRouteImport } from './routes/termos'
 import { Route as AdminConfiguracoesRouteImport } from './routes/admin_.configuracoes'
 import { Route as AdminGerarRouteImport } from './routes/admin_.gerar'
 import { Route as AdminMateriaisRouteImport } from './routes/admin_.materiais'
+import { Route as AdminPagamentosRouteImport } from './routes/admin_.pagamentos'
 import { Route as AdminQuestoesRouteImport } from './routes/admin_.questoes'
 import { Route as AdminReportesRouteImport } from './routes/admin_.reportes'
 import { Route as AdminSuporteRouteImport } from './routes/admin_.suporte'
@@ -100,6 +101,11 @@ const AdminMateriaisRoute = AdminMateriaisRouteImport.update({
   path: '/admin/materiais',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminPagamentosRoute = AdminPagamentosRouteImport.update({
+  id: '/admin_/pagamentos',
+  path: '/admin/pagamentos',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminQuestoesRoute = AdminQuestoesRouteImport.update({
   id: '/admin_/questoes',
   path: '/admin/questoes',
@@ -146,6 +152,7 @@ export interface FileRoutesByFullPath {
   '/admin/configuracoes': typeof AdminConfiguracoesRoute
   '/admin/gerar': typeof AdminGerarRoute
   '/admin/materiais': typeof AdminMateriaisRoute
+  '/admin/pagamentos': typeof AdminPagamentosRoute
   '/admin/questoes': typeof AdminQuestoesRoute
   '/admin/reportes': typeof AdminReportesRoute
   '/admin/suporte': typeof AdminSuporteRoute
@@ -168,6 +175,7 @@ export interface FileRoutesByTo {
   '/admin/configuracoes': typeof AdminConfiguracoesRoute
   '/admin/gerar': typeof AdminGerarRoute
   '/admin/materiais': typeof AdminMateriaisRoute
+  '/admin/pagamentos': typeof AdminPagamentosRoute
   '/admin/questoes': typeof AdminQuestoesRoute
   '/admin/reportes': typeof AdminReportesRoute
   '/admin/suporte': typeof AdminSuporteRoute
@@ -191,6 +199,7 @@ export interface FileRoutesById {
   '/admin_/configuracoes': typeof AdminConfiguracoesRoute
   '/admin_/gerar': typeof AdminGerarRoute
   '/admin_/materiais': typeof AdminMateriaisRoute
+  '/admin_/pagamentos': typeof AdminPagamentosRoute
   '/admin_/questoes': typeof AdminQuestoesRoute
   '/admin_/reportes': typeof AdminReportesRoute
   '/admin_/suporte': typeof AdminSuporteRoute
@@ -215,6 +224,7 @@ export interface FileRouteTypes {
     | '/admin/configuracoes'
     | '/admin/gerar'
     | '/admin/materiais'
+    | '/admin/pagamentos'
     | '/admin/questoes'
     | '/admin/reportes'
     | '/admin/suporte'
@@ -237,6 +247,7 @@ export interface FileRouteTypes {
     | '/admin/configuracoes'
     | '/admin/gerar'
     | '/admin/materiais'
+    | '/admin/pagamentos'
     | '/admin/questoes'
     | '/admin/reportes'
     | '/admin/suporte'
@@ -259,6 +270,7 @@ export interface FileRouteTypes {
     | '/admin_/configuracoes'
     | '/admin_/gerar'
     | '/admin_/materiais'
+    | '/admin_/pagamentos'
     | '/admin_/questoes'
     | '/admin_/reportes'
     | '/admin_/suporte'
@@ -282,6 +294,7 @@ export interface RootRouteChildren {
   AdminConfiguracoesRoute: typeof AdminConfiguracoesRoute
   AdminGerarRoute: typeof AdminGerarRoute
   AdminMateriaisRoute: typeof AdminMateriaisRoute
+  AdminPagamentosRoute: typeof AdminPagamentosRoute
   AdminQuestoesRoute: typeof AdminQuestoesRoute
   AdminReportesRoute: typeof AdminReportesRoute
   AdminSuporteRoute: typeof AdminSuporteRoute
@@ -390,6 +403,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminMateriaisRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin_/pagamentos': {
+      id: '/admin_/pagamentos'
+      path: '/admin/pagamentos'
+      fullPath: '/admin/pagamentos'
+      preLoaderRoute: typeof AdminPagamentosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin_/questoes': {
       id: '/admin_/questoes'
       path: '/admin/questoes'
@@ -450,6 +470,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminConfiguracoesRoute: AdminConfiguracoesRoute,
   AdminGerarRoute: AdminGerarRoute,
   AdminMateriaisRoute: AdminMateriaisRoute,
+  AdminPagamentosRoute: AdminPagamentosRoute,
   AdminQuestoesRoute: AdminQuestoesRoute,
   AdminReportesRoute: AdminReportesRoute,
   AdminSuporteRoute: AdminSuporteRoute,

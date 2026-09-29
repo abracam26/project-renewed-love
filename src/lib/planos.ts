@@ -54,6 +54,37 @@ export function somarMeses(dataIso: string, meses: number): string {
   return alvo.toISOString().slice(0, 10);
 }
 
+/**
+ * Nova validade ao somar um período (mesma regra da função do banco
+ * calcular_nova_validade). O período começa no dia seguinte ao fim da
+ * validade atual, se o acesso ainda vale, ou hoje (o dia da compra conta).
+ * Meses: até a véspera do mesmo dia N meses depois; se esse dia não existe
+ * no mês final, até o último dia dele.
+ * Ex.: 28/09 → 27/10; renovado, até 27/11; 01/03 → 31/03; 31/01 → 28/02.
+ */
+export function novaValidade(
+  plano: string | null | undefined,
+  validade: string | null | undefined,
+  quantidade: number,
+  unidade: "dias" | "meses",
+  hoje: string = hojeSaoPaulo(),
+): string {
+  const ativo =
+    Boolean(plano && (PLANOS_PAGOS as readonly string[]).includes(plano)) &&
+    Boolean(validade) &&
+    (validade as string).slice(0, 10) >= hoje;
+  const inicio = ativo ? somarDias((validade as string).slice(0, 10), 1) : hoje;
+  if (unidade === "dias") return somarDias(inicio, quantidade - 1);
+  const fim = somarMeses(inicio, quantidade);
+  return Number(fim.slice(8, 10)) < Number(inicio.slice(8, 10)) ? fim : somarDias(fim, -1);
+}
+
+/** Nome do plano para exibir: o do plano comprado ou a categoria (Mensal/Anual). */
+export function nomeDoPlano(plano: string | null | undefined, planoNome?: string | null): string {
+  if (planoNome) return planoNome;
+  return plano === "anual" ? "Anual" : plano === "mensal" ? "Mensal" : PLANO_LABEL.gratis;
+}
+
 /** "2026-10-28" -> "28/10/2026". */
 export function formatarDataBR(dataIso: string | null | undefined): string {
   if (!dataIso) return "—";

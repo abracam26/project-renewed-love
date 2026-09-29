@@ -201,9 +201,12 @@ export const iniciarSimulado = createServerFn({ method: "POST" })
     if (!admin && !(perfil?.cadastro_completo_em && perfil.cpf)) {
       throw new Error("Complete seu cadastro antes de iniciar um simulado.");
     }
+    if (!gratis && !admin && perfil?.plano === "inativo") {
+      throw new Error("Sua conta está bloqueada. Fale com a ABRACAM.");
+    }
     if (!gratis && !admin && !acessoAtivo(perfil?.plano, perfil?.plano_validade)) {
       throw new Error(
-        "Seu plano não está ativo. Sem plano, você pode fazer apenas o teste grátis. Fale com a ABRACAM para liberar o acesso.",
+        "Seu plano não está ativo. Sem plano, você pode fazer apenas o teste grátis. Veja os planos na página Planos para liberar o acesso.",
       );
     }
 
@@ -578,7 +581,7 @@ export const dashboardAluno = createServerFn({ method: "POST" })
 
     const [
       { data: stats },
-      { data: perfil },
+      { data: perfil, error: ePerfil },
       { data: recentes },
       { data: emAndamento },
       { data: papel },
@@ -586,9 +589,9 @@ export const dashboardAluno = createServerFn({ method: "POST" })
       supabaseAdmin.rpc("estatisticas_aluno", { p_user_id: userId }).single(),
       supabaseAdmin
         .from("profiles")
-        .select("username, full_name, nome_completo, cpf_hash, plano, plano_validade")
+        .select("username, full_name, nome_completo, cpf_hash, plano, plano_validade, plano_nome")
         .eq("id", userId)
-        .single(),
+        .maybeSingle(),
       supabaseAdmin
         .from("simulados")
         .select("id, tipo, status, iniciado_em, finalizado_em, acertos, total_questoes, aprovado")
@@ -609,6 +612,7 @@ export const dashboardAluno = createServerFn({ method: "POST" })
         .eq("role", "admin")
         .maybeSingle(),
     ]);
+    if (ePerfil) throw new Error(ePerfil.message);
 
     return {
       stats: stats ?? {
@@ -626,6 +630,7 @@ export const dashboardAluno = createServerFn({ method: "POST" })
         primeiroNome: perfil?.nome_completo?.trim().split(/\s+/)[0] ?? null,
         temCpf: Boolean(perfil?.cpf_hash),
         plano: perfil?.plano ?? "gratis",
+        plano_nome: perfil?.plano_nome ?? null,
         plano_validade: perfil?.plano_validade ?? null,
         acessoAtivo: acessoAtivo(perfil?.plano, perfil?.plano_validade),
         isAdmin: Boolean(papel),

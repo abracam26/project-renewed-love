@@ -1,8 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Settings2 } from "lucide-react";
+import { ArrowLeft, CreditCard, Settings2 } from "lucide-react";
 import { AdminGate } from "@/components/AdminGate";
 import { ConfiguracoesProva } from "@/components/ConfiguracoesProva";
-import { PlanosPrecos } from "@/components/PlanosPrecos";
 
 export const Route = createFileRoute("/admin_/configuracoes")({
   ssr: false,
@@ -38,7 +37,14 @@ function AdminConfiguracoes() {
       <AdminGate>
         {({ token }) => (
           <div className="space-y-5">
-            <PlanosPrecos token={token} />
+            <p className="panel flex flex-wrap items-center gap-2 p-4 text-sm text-muted-foreground">
+              <CreditCard className="size-4 text-primary" />
+              Preços, planos à venda e forma de pagamento agora ficam em
+              <Link to="/admin/pagamentos" className="font-semibold text-primary hover:underline">
+                Planos e pagamentos
+              </Link>
+              .
+            </p>
             <ConfiguracoesProva token={token} />
           </div>
         )}

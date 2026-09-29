@@ -93,6 +93,12 @@ function Termos() {
           antes da contratação. Nas contratações feitas pela internet, você pode desistir em até 7
           (sete) dias a contar da contratação, conforme o art. 49 do Código de Defesa do Consumidor.
         </p>
+        <p>
+          O acesso é liberado quando o pagamento é confirmado. O dia da confirmação já conta como o
+          primeiro dia de acesso; na renovação, o novo período é somado ao fim do acesso que ainda
+          estiver valendo. Se o pagamento for estornado, os dias liberados por aquele pedido podem
+          ser retirados.
+        </p>
       </Secao>
 
       <Secao numero={5} titulo="Propriedade intelectual">

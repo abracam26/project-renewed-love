@@ -60,8 +60,10 @@ function Privacidade() {
           <li>
             <strong>CPF:</strong> identifica sua conta (um cadastro por CPF) e garante um único
             teste gratuito por pessoa. Ele pode ser consultado apenas pela equipe administrativa da
-            ABRACAM, não é exibido a outros usuários e não é compartilhado. Também guardamos uma
-            versão cifrada do número, usada exclusivamente no controle do teste gratuito.
+            ABRACAM e não é exibido a outros usuários. Quando você contrata um plano, o CPF (ou o
+            CNPJ, se a compra for em nome da empresa) também identifica o comprador no registro da
+            venda. Também guardamos uma versão cifrada do número, usada exclusivamente no controle
+            do teste gratuito.
           </li>
           <li>
             <strong>Dados de uso do simulador:</strong> simulados iniciados e concluídos, respostas
@@ -70,6 +72,11 @@ function Privacidade() {
           <li>
             <strong>Dados do plano:</strong> tipo de plano e prazo de acesso, definidos pela
             ABRACAM.
+          </li>
+          <li>
+            <strong>Pedidos e pagamentos:</strong> plano contratado, valor, forma de pagamento,
+            datas do pedido e da confirmação do pagamento, e nome, e-mail e CPF ou CNPJ de quem
+            comprou. Não guardamos dados de cartão de crédito.
           </li>
           <li>
             <strong>Suporte e reportes:</strong> as mensagens que você envia pelos chamados de
@@ -88,6 +95,11 @@ function Privacidade() {
           <li>
             Criar e manter sua conta, identificar você e controlar o seu plano e prazo de acesso
             (execução de contrato, art. 7º, V, da LGPD).
+          </li>
+          <li>
+            Registrar pedidos e pagamentos dos planos, liberar o acesso contratado e manter o
+            registro das vendas exigido pela legislação fiscal (execução de contrato e cumprimento
+            de obrigação legal, art. 7º, V e II).
           </li>
           <li>
             Montar os simulados, evitar a repetição de questões, corrigir as provas e mostrar seu
@@ -136,6 +148,13 @@ function Privacidade() {
           <li>
             Google, somente se você escolher entrar com a conta Google, para concluir o login.
           </li>
+          <li>
+            Bancos e empresas de pagamento usados pela ABRACAM para receber o valor dos planos (por
+            exemplo, para emitir boleto ou link de pagamento e, quando estiver disponível, para o
+            pagamento online): recebem os dados necessários para a cobrança, como nome, e-mail, CPF
+            ou CNPJ e valor. Os dados do cartão são digitados diretamente no ambiente da empresa de
+            pagamento e não passam pelo simulador.
+          </li>
           <li>Autoridades públicas, quando houver obrigação legal ou ordem judicial.</li>
         </Lista>
         <p>
@@ -153,9 +172,16 @@ function Privacidade() {
             necessário para cumprir obrigações legais ou exercer direitos.
           </li>
           <li>
-            <strong>CPF:</strong> o número é apagado junto com a conta. Só a versão cifrada é
-            mantida após a exclusão, exclusivamente para impedir que o mesmo CPF utilize a
+            <strong>CPF:</strong> o número é apagado do seu cadastro junto com a conta. A versão
+            cifrada é mantida após a exclusão, exclusivamente para impedir que o mesmo CPF utilize a
             gratuidade novamente.
+          </li>
+          <li>
+            <strong>Pedidos e pagamentos:</strong> os pedidos pagos, inclusive os estornados, são
+            mantidos pelo prazo exigido pela legislação fiscal (em regra, 5 anos), mesmo após a
+            exclusão da conta, com o nome e o CPF ou CNPJ do comprador; o e-mail de contato é
+            apagado desse registro quando a conta é excluída. Pedidos que nunca foram pagos são
+            apagados junto com a conta.
           </li>
           <li>
             <strong>Registros técnicos de acesso:</strong> pelo prazo exigido pela legislação

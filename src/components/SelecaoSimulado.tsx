@@ -56,12 +56,15 @@ export function SelecaoSimulado({
   token,
   temCpf,
   liberado,
+  bloqueado = false,
   temSimuladoAberto,
 }: {
   token: string;
   temCpf: boolean;
   /** Plano ativo ou admin: libera ABT1, ABT2 e ABT – Correspondentes. */
   liberado: boolean;
+  /** Conta bloqueada pelo admin (plano 'inativo'): não pode contratar. */
+  bloqueado?: boolean;
   /** Há um simulado que ficou em andamento (será encerrado ao iniciar outro). */
   temSimuladoAberto: boolean;
 }) {
@@ -130,7 +133,9 @@ export function SelecaoSimulado({
               )}
               {semPlano && (
                 <p className="mt-2 text-[11px] text-destructive">
-                  Disponível com plano ativo. Fale com a ABRACAM para liberar.
+                  {bloqueado
+                    ? "Conta bloqueada. Fale com a ABRACAM."
+                    : "Disponível com plano ativo. Veja os planos no menu Planos."}
                 </p>
               )}
               <button

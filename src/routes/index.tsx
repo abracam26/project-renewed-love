@@ -20,7 +20,7 @@ import {
 import { useToken } from "@/hooks/use-token";
 import { SelecaoSimulado } from "@/components/SelecaoSimulado";
 import { dashboardAluno } from "@/lib/simulado.functions";
-import { formatarDataBR } from "@/lib/planos";
+import { formatarDataBR, nomeDoPlano } from "@/lib/planos";
 import { nomeProva } from "@/lib/provas";
 
 export const Route = createFileRoute("/")({
@@ -137,6 +137,7 @@ function Dashboard() {
             acessoAtivo={d.perfil.acessoAtivo}
             isAdmin={d.perfil.isAdmin}
             plano={d.perfil.plano}
+            planoNome={d.perfil.plano_nome}
             validade={d.perfil.plano_validade}
           />
 
@@ -144,6 +145,7 @@ function Dashboard() {
             token={token}
             temCpf={d.perfil.temCpf}
             liberado={d.perfil.acessoAtivo || d.perfil.isAdmin}
+            bloqueado={d.perfil.plano === "inativo"}
             temSimuladoAberto={Boolean(d.emAndamento)}
           />
 
@@ -228,11 +230,13 @@ function StatusPlano({
   acessoAtivo,
   isAdmin,
   plano,
+  planoNome,
   validade,
 }: {
   acessoAtivo: boolean;
   isAdmin: boolean;
   plano: string;
+  planoNome: string | null;
   validade: string | null;
 }) {
   if (isAdmin && !acessoAtivo) {
@@ -248,7 +252,7 @@ function StatusPlano({
       <div className="panel flex items-center gap-3 border-success/40 p-4 text-sm text-card-foreground">
         <CalendarCheck className="size-5 shrink-0 text-success" />
         <span>
-          Plano {plano === "anual" ? "anual" : "mensal"} ativo, com acesso até{" "}
+          Plano {nomeDoPlano(plano, planoNome)} ativo, com acesso até{" "}
           <strong>{formatarDataBR(validade)}</strong>.
         </span>
       </div>
@@ -268,8 +272,18 @@ function StatusPlano({
         ) : (
           <>Você ainda não tem um plano ativo. </>
         )}
-        Enquanto isso, está disponível apenas o teste grátis. Para liberar os simulados completos,
-        fale com a ABRACAM.
+        Enquanto isso, está disponível apenas o teste grátis. Para liberar os simulados completos,{" "}
+        {plano === "inativo" ? (
+          "fale com a ABRACAM."
+        ) : (
+          <Link
+            to="/planos"
+            className="font-semibold text-primary underline-offset-2 hover:underline"
+          >
+            veja os planos
+          </Link>
+        )}
+        {plano === "inativo" ? "" : "."}
       </span>
     </div>
   );
