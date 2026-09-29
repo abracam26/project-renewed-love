@@ -406,42 +406,6 @@ export type Database = {
         }
         Relationships: []
       }
-      notificacoes: {
-        Row: {
-          created_at: string
-          id: string
-          lida_em: string | null
-          link: string | null
-          mensagem: string | null
-          ref: string | null
-          tipo: string
-          titulo: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          lida_em?: string | null
-          link?: string | null
-          mensagem?: string | null
-          ref?: string | null
-          tipo: string
-          titulo: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          lida_em?: string | null
-          link?: string | null
-          mensagem?: string | null
-          ref?: string | null
-          tipo?: string
-          titulo?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       pagamentos: {
         Row: {
           created_at: string

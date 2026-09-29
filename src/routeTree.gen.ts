@@ -17,7 +17,6 @@ import { Route as PdfsRouteImport } from './routes/pdfs'
 import { Route as PerfilRouteImport } from './routes/perfil'
 import { Route as PlanosRouteImport } from './routes/planos'
 import { Route as PrivacidadeRouteImport } from './routes/privacidade'
-import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
 import { Route as RelatoriosRouteImport } from './routes/relatorios'
 import { Route as SuporteRouteImport } from './routes/suporte'
 import { Route as TermosRouteImport } from './routes/termos'
@@ -70,11 +69,6 @@ const PlanosRoute = PlanosRouteImport.update({
 const PrivacidadeRoute = PrivacidadeRouteImport.update({
   id: '/privacidade',
   path: '/privacidade',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RedefinirSenhaRoute = RedefinirSenhaRouteImport.update({
-  id: '/redefinir-senha',
-  path: '/redefinir-senha',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RelatoriosRoute = RelatoriosRouteImport.update({
@@ -152,7 +146,6 @@ export interface FileRoutesByFullPath {
   '/perfil': typeof PerfilRoute
   '/planos': typeof PlanosRoute
   '/privacidade': typeof PrivacidadeRoute
-  '/redefinir-senha': typeof RedefinirSenhaRoute
   '/relatorios': typeof RelatoriosRoute
   '/suporte': typeof SuporteRoute
   '/termos': typeof TermosRoute
@@ -176,7 +169,6 @@ export interface FileRoutesByTo {
   '/perfil': typeof PerfilRoute
   '/planos': typeof PlanosRoute
   '/privacidade': typeof PrivacidadeRoute
-  '/redefinir-senha': typeof RedefinirSenhaRoute
   '/relatorios': typeof RelatoriosRoute
   '/suporte': typeof SuporteRoute
   '/termos': typeof TermosRoute
@@ -201,7 +193,6 @@ export interface FileRoutesById {
   '/perfil': typeof PerfilRoute
   '/planos': typeof PlanosRoute
   '/privacidade': typeof PrivacidadeRoute
-  '/redefinir-senha': typeof RedefinirSenhaRoute
   '/relatorios': typeof RelatoriosRoute
   '/suporte': typeof SuporteRoute
   '/termos': typeof TermosRoute
@@ -227,7 +218,6 @@ export interface FileRouteTypes {
     | '/perfil'
     | '/planos'
     | '/privacidade'
-    | '/redefinir-senha'
     | '/relatorios'
     | '/suporte'
     | '/termos'
@@ -251,7 +241,6 @@ export interface FileRouteTypes {
     | '/perfil'
     | '/planos'
     | '/privacidade'
-    | '/redefinir-senha'
     | '/relatorios'
     | '/suporte'
     | '/termos'
@@ -275,7 +264,6 @@ export interface FileRouteTypes {
     | '/perfil'
     | '/planos'
     | '/privacidade'
-    | '/redefinir-senha'
     | '/relatorios'
     | '/suporte'
     | '/termos'
@@ -300,7 +288,6 @@ export interface RootRouteChildren {
   PerfilRoute: typeof PerfilRoute
   PlanosRoute: typeof PlanosRoute
   PrivacidadeRoute: typeof PrivacidadeRoute
-  RedefinirSenhaRoute: typeof RedefinirSenhaRoute
   RelatoriosRoute: typeof RelatoriosRoute
   SuporteRoute: typeof SuporteRoute
   TermosRoute: typeof TermosRoute
@@ -372,13 +359,6 @@ declare module '@tanstack/react-router' {
       path: '/privacidade'
       fullPath: '/privacidade'
       preLoaderRoute: typeof PrivacidadeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/redefinir-senha': {
-      id: '/redefinir-senha'
-      path: '/redefinir-senha'
-      fullPath: '/redefinir-senha'
-      preLoaderRoute: typeof RedefinirSenhaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/relatorios': {
@@ -484,7 +464,6 @@ const rootRouteChildren: RootRouteChildren = {
   PerfilRoute: PerfilRoute,
   PlanosRoute: PlanosRoute,
   PrivacidadeRoute: PrivacidadeRoute,
-  RedefinirSenhaRoute: RedefinirSenhaRoute,
   RelatoriosRoute: RelatoriosRoute,
   SuporteRoute: SuporteRoute,
   TermosRoute: TermosRoute,

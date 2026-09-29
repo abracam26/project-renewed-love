@@ -7,7 +7,6 @@ import logoAsset from "@/assets/abracam-logo.png.asset.json";
 import { supabase } from "@/integrations/supabase/client";
 import { consumirDestinoAposLogin } from "@/lib/destino-login";
 import { mensagemErro } from "@/lib/erros";
-import { enviarLinkDeRecuperacao } from "@/lib/recuperacao-senha";
 import { cnpjValido, formatarCnpj } from "@/lib/cnpj";
 import { cpfValido, formatarCpf } from "@/lib/cpf";
 import { cadastrarAluno } from "@/lib/usuarios.functions";
@@ -51,18 +50,6 @@ function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
-  // "Esqueci minha senha": pedir o link por e-mail
-  const [recuperar, setRecuperar] = useState(false);
-  const [linkEnviado, setLinkEnviado] = useState(false);
-  const [enviandoLink, setEnviandoLink] = useState(false);
-
-  useEffect(() => {
-    // Vindo de "Pedir um novo link" (link de nova senha vencido)
-    if (new URLSearchParams(window.location.search).get("recuperar") === "1") {
-      setMode("login");
-      setRecuperar(true);
-    }
-  }, []);
 
   useEffect(() => {
     // Já logado (ou acabou de entrar): volta para a página que tentou abrir
@@ -126,26 +113,6 @@ function AuthPage() {
     }
   }
 
-  async function handleRecuperar(e: React.FormEvent) {
-    e.preventDefault();
-    setEnviandoLink(true);
-    try {
-      await enviarLinkDeRecuperacao(email);
-      setLinkEnviado(true);
-    } catch (err) {
-      toast.error(mensagemErro(err));
-    } finally {
-      setEnviandoLink(false);
-    }
-  }
-
-  function voltarParaLogin() {
-    setRecuperar(false);
-    setLinkEnviado(false);
-    setEmailSent(false);
-    setMode("login");
-  }
-
   async function handleGoogle() {
     setGoogleLoading(true);
     const { error } = await supabase.auth.signInWithOAuth({
@@ -184,8 +151,6 @@ function AuthPage() {
                 onClick={() => {
                   setMode(m);
                   setEmailSent(false);
-                  setRecuperar(false);
-                  setLinkEnviado(false);
                 }}
                 className={cn(
                   "rounded-sm px-3 py-2 text-sm font-medium transition-colors",
@@ -199,69 +164,12 @@ function AuthPage() {
             ))}
           </div>
 
-          {recuperar ? (
-            linkEnviado ? (
-              <div className="space-y-4 text-center">
-                <Mail className="mx-auto size-8 text-primary" />
-                <p className="text-sm text-card-foreground">
-                  Se existir uma conta com o e-mail <strong>{email}</strong>, você vai receber em
-                  alguns minutos um link para criar uma nova senha.
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Confira também a caixa de spam. O link vale por tempo limitado e só pode ser usado
-                  uma vez. Se pedir mais de um, use o e-mail mais recente.
-                </p>
-                <button
-                  type="button"
-                  onClick={voltarParaLogin}
-                  className="text-sm font-medium text-primary hover:underline"
-                >
-                  Voltar para o login
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleRecuperar} className="space-y-4">
-                <div>
-                  <p className="text-sm font-semibold text-card-foreground">Recuperar senha</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Digite o e-mail da sua conta. Vamos enviar um link para você criar uma nova
-                    senha.
-                  </p>
-                </div>
-                <Field label="E-mail" icon={Mail}>
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="voce@email.com"
-                    autoComplete="email"
-                    className="w-full bg-transparent text-sm text-card-foreground outline-none placeholder:text-muted-foreground"
-                  />
-                </Field>
-                <button
-                  type="submit"
-                  disabled={enviandoLink}
-                  className="flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-gold transition-colors hover:bg-primary/90 disabled:opacity-60"
-                >
-                  {enviandoLink && <Loader2 className="size-4 animate-spin" />}
-                  Enviar link
-                </button>
-                <button
-                  type="button"
-                  onClick={voltarParaLogin}
-                  className="block w-full text-center text-sm font-medium text-primary hover:underline"
-                >
-                  Voltar para o login
-                </button>
-              </form>
-            )
-          ) : emailSent ? (
+          {emailSent ? (
             <div className="space-y-4 text-center">
               <Mail className="mx-auto size-8 text-primary" />
               <p className="text-sm text-card-foreground">
-                Enviamos um link de confirmação para <strong>{email}</strong>. Confirme seu e-mail
-                para acessar a plataforma.
+                Enviamos um link de confirmação para <strong>{email}</strong>. Confirme seu e-mail para
+                acessar a plataforma.
               </p>
               <button
                 type="button"
@@ -353,20 +261,6 @@ function AuthPage() {
                   className="w-full bg-transparent text-sm text-card-foreground outline-none placeholder:text-muted-foreground"
                 />
               </Field>
-              {mode === "login" && (
-                <div className="-mt-2 text-right">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRecuperar(true);
-                      setLinkEnviado(false);
-                    }}
-                    className="text-xs font-medium text-primary hover:underline"
-                  >
-                    Esqueci minha senha
-                  </button>
-                </div>
-              )}
 
               <button
                 type="submit"
@@ -379,7 +273,7 @@ function AuthPage() {
             </form>
           )}
 
-          {!emailSent && !recuperar && (
+          {!emailSent && (
             <>
               <div className="my-5 flex items-center gap-3">
                 <span className="h-px flex-1 bg-border" />

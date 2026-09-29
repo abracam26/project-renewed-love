@@ -2,6 +2,7 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   BarChart3,
+  Bell,
   Clock,
   CreditCard,
   FileDown,
@@ -17,7 +18,6 @@ import {
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import logoAsset from "@/assets/abracam-logo.png.asset.json";
 import { ContaGate } from "@/components/ContaGate";
-import { Notificacoes } from "@/components/Notificacoes";
 import { useSupabaseSession } from "@/hooks/use-session";
 import { supabase } from "@/integrations/supabase/client";
 import { guardarDestinoAposLogin } from "@/lib/destino-login";
@@ -40,6 +40,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const { user, loading } = useSupabaseSession();
   const href = useRouterState({ select: (s) => s.location.href });
+  const navegando = useRouterState({ select: (s) => s.status === "pending" });
   const saindoRef = useRef(false);
 
   // O sistema só abre para quem está logado: visitante vai para o login e,
@@ -97,6 +98,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Link
               key={to}
               to={to}
+              preload="intent"
+              preloadDelay={20}
               onClick={() => setOpen(false)}
               activeOptions={{ exact: to === "/" }}
               className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
@@ -142,7 +145,13 @@ export function AppShell({ children }: { children: ReactNode }) {
           <span className="text-sm font-medium text-sidebar-foreground">Painel de Controle</span>
 
           <div className="ml-auto flex items-center gap-4">
-            <Notificacoes />
+            <button
+              className="relative rounded-md p-2 text-sidebar-foreground/80 hover:bg-sidebar-accent"
+              aria-label="Notificações"
+            >
+              <Bell className="size-4" />
+              <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-destructive" />
+            </button>
             <div className="flex items-center gap-2">
               <span className="flex size-8 items-center justify-center rounded-full bg-sidebar-accent text-sidebar-accent-foreground">
                 <User className="size-4" />
@@ -156,6 +165,14 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </div>
         </header>
+
+        <div
+          aria-hidden="true"
+          className={cn(
+            "pointer-events-none fixed inset-x-0 top-0 z-50 h-0.5 origin-left bg-primary transition-opacity lg:left-60",
+            navegando ? "animate-pulse opacity-100" : "opacity-0",
+          )}
+        />
 
         <main className="flex-1 px-4 py-6 sm:px-6">
           <ContaGate>{children}</ContaGate>
