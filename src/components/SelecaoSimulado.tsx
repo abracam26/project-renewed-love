@@ -202,7 +202,7 @@ export function SelecaoSimulado({
               Iniciar {confirmar ? LABEL[confirmar] : "simulado"}?
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
-              <div className="space-y-2 text-sm leading-relaxed text-foreground">
+              <div className="space-y-2 text-sm font-medium leading-relaxed text-dialog-copy">
                 {cfgConfirmar && (
                   <p>
                     {cfgConfirmar.total_questoes} questões em até {cfgConfirmar.tempo_maximo_min}{" "}
