@@ -48,7 +48,7 @@ export function IdEReporte({
         className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-primary disabled:text-success"
       >
         {enviado ? <Check className="size-3" /> : <Flag className="size-3" />}
-        {enviado ? "Reportada" : "Reportar erro"}
+        {enviado ? "Reportada" : "Reportar questão"}
       </button>
 
       <Dialog open={aberto} onOpenChange={setAberto}>
@@ -109,7 +109,7 @@ function FormReporte({
       <DialogHeader>
         <DialogTitle className="flex items-center gap-2">
           <Flag className="size-4 text-primary" />
-          Reportar problema na questão
+          Reportar questão
         </DialogTitle>
         <DialogDescription>
           Questão <span className="font-mono">{questaoId}</span>. O reporte vai para a equipe da
@@ -119,7 +119,7 @@ function FormReporte({
 
       <fieldset className="space-y-1.5">
         <legend className="mb-1 text-xs font-medium text-card-foreground/80">
-          Qual é o problema?
+          Qual é o motivo do reporte?
         </legend>
         {MOTIVOS_REPORTE.map((m) => (
           <label

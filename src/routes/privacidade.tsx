@@ -80,7 +80,7 @@ function Privacidade() {
           </li>
           <li>
             <strong>Suporte e reportes:</strong> as mensagens que você envia pelos chamados de
-            suporte e pelos reportes de erro em questões, com as respostas da equipe.
+            suporte e pelos reportes de questões, com as respostas da equipe.
           </li>
           <li>
             <strong>Dados técnicos:</strong> informações necessárias ao funcionamento e à segurança

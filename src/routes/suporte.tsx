@@ -93,7 +93,7 @@ function Suporte() {
         <section className="panel p-6">
           <h2 className="text-lg font-semibold text-card-foreground">Abrir novo chamado</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Para apontar erro numa questão específica, use o botão "Reportar erro" que aparece na
+            Para reportar uma questão específica, use o botão "Reportar questão" que aparece na
             própria questão, durante o simulado ou no resultado.
           </p>
           <form
