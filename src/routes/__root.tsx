@@ -14,6 +14,11 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AppShell } from "@/components/AppShell";
 import { Toaster } from "@/components/ui/sonner";
+import { escutarRecuperacaoDeSenha } from "@/lib/recuperacao-senha";
+
+// Link de "Esqueci minha senha": precisa ser lido antes de qualquer página
+// usar o login (o cliente do Supabase consome o final do endereço).
+if (typeof window !== "undefined") escutarRecuperacaoDeSenha();
 
 function NotFoundComponent() {
   return (
@@ -47,7 +52,9 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">Esta página não carregou</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-foreground">
+          Esta página não carregou
+        </h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Algo deu errado do nosso lado. Tente atualizar ou volte ao painel.
         </p>
@@ -81,10 +88,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "Simulador ABT — Plataforma de simulados" },
       {
         name: "description",
-        content: "Plataforma de simulados para a certificação ABT: painel, histórico, relatórios e materiais.",
+        content:
+          "Plataforma de simulados para a certificação ABT: painel, histórico, relatórios e materiais.",
       },
       { property: "og:title", content: "Simulador ABT" },
-      { property: "og:description", content: "Treine para a certificação ABT com simulados e relatórios." },
+      {
+        property: "og:description",
+        content: "Treine para a certificação ABT com simulados e relatórios.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -119,12 +130,12 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
-const PAGINAS_SEM_MENU = new Set(["/auth", "/privacidade", "/termos"]);
+const PAGINAS_SEM_MENU = new Set(["/auth", "/redefinir-senha", "/privacidade", "/termos"]);
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  // Login e páginas legais são públicas e aparecem sem o menu lateral.
+  // Login, nova senha e páginas legais aparecem sem o menu lateral.
   const bare = PAGINAS_SEM_MENU.has(pathname.replace(/\/$/, ""));
 
   return (
