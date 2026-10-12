@@ -6,6 +6,7 @@ import {
   CalendarPlus,
   ChevronLeft,
   ChevronRight,
+  Download,
   HandCoins,
   History,
   Loader2,
@@ -54,6 +55,7 @@ import {
   atualizarCadastroUsuario,
   atualizarPlano,
   detalheUsuario,
+  exportarUsuariosCsv,
   listarUsuarios,
   type FiltroUsuarios,
 } from "@/lib/usuarios.functions";
@@ -125,6 +127,24 @@ export function GestorUsuarios({ token }: { token: string }) {
   const total = query.data?.total ?? 0;
   const paginas = Math.max(1, Math.ceil(total / POR_PAGINA));
 
+  // Exporta todos os usuários da busca e do filtro aplicados (não só a página aberta)
+  const exportar = useServerFn(exportarUsuariosCsv);
+  const mutExportar = useMutation({
+    mutationFn: () => exportar({ data: { token, busca, filtro } }),
+    onSuccess: ({ csv, total: n }) => {
+      const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `usuarios-simulador-abt-${hojeSaoPaulo()}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      toast.success(`Arquivo CSV gerado com ${n} usuário${n === 1 ? "" : "s"}.`);
+    },
+    onError: (e) => toast.error(mensagemErro(e)),
+  });
+
   return (
     <div className="space-y-4">
       <section className="panel p-5">
@@ -151,7 +171,7 @@ export function GestorUsuarios({ token }: { token: string }) {
               setPagina(0);
               setFiltro(e.target.value as FiltroUsuarios);
             }}
-            className={`${inputClass} w-auto py-2`}
+            className={`${inputClass.replace("w-full ", "")} py-2 sm:w-56`}
           >
             {(Object.keys(FILTRO_LABEL) as FiltroUsuarios[]).map((f) => (
               <option key={f} value={f}>
@@ -165,11 +185,26 @@ export function GestorUsuarios({ token }: { token: string }) {
           >
             Buscar
           </button>
+          <button
+            type="button"
+            onClick={() => mutExportar.mutate()}
+            disabled={mutExportar.isPending || total === 0}
+            title="Baixa uma planilha com todos os usuários da busca e do filtro escolhidos"
+            className="inline-flex items-center gap-2 rounded-md border border-border bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground hover:bg-accent disabled:opacity-50"
+          >
+            {mutExportar.isPending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Download className="size-4" />
+            )}
+            Exportar CSV
+          </button>
         </form>
         <p className="mt-3 text-xs text-muted-foreground">
           {query.isPending
             ? "Carregando..."
             : `${total} usuário${total === 1 ? "" : "s"} encontrado${total === 1 ? "" : "s"}`}
+          {" · "}O “Exportar CSV” baixa todos os usuários da busca e do filtro aplicados.
         </p>
       </section>
 
@@ -269,7 +304,7 @@ export function GestorUsuarios({ token }: { token: string }) {
       </section>
 
       <Dialog open={Boolean(aberto)} onOpenChange={(o) => !o && setAberto(null)}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+        <DialogContent className="max-h-[90vh] overflow-y-auto bg-card text-card-foreground sm:max-w-3xl">
           {aberto && <DetalheUsuario key={aberto} token={token} userId={aberto} />}
         </DialogContent>
       </Dialog>
@@ -289,14 +324,14 @@ function SeloAcesso({
   isAdmin: boolean;
 }) {
   const [texto, classe] = ativo
-    ? [`Até ${formatarDataBR(validade)}`, "bg-success/15 text-success"]
+    ? [`Até ${formatarDataBR(validade)}`, "bg-success text-success-foreground"]
     : isAdmin
-      ? ["Admin (liberado)", "bg-info/15 text-info"]
+      ? ["Admin (liberado)", "bg-info text-info-foreground"]
       : plano === "inativo"
-        ? ["Bloqueado", "bg-destructive/15 text-destructive"]
+        ? ["Bloqueado", "bg-destructive text-destructive-foreground"]
         : (plano === "mensal" || plano === "anual") && validade
-          ? [`Venceu ${formatarDataBR(validade)}`, "bg-destructive/15 text-destructive"]
-          : ["Só teste grátis", "bg-muted text-muted-foreground"];
+          ? [`Venceu ${formatarDataBR(validade)}`, "bg-destructive text-destructive-foreground"]
+          : ["Só teste grátis", "border border-border bg-secondary text-secondary-foreground"];
   return (
     <span className={cn("inline-block rounded px-2 py-0.5 text-[11px] font-semibold", classe)}>
       {texto}
@@ -350,7 +385,7 @@ function DetalheUsuario({ token, userId }: { token: string; userId: string }) {
           <UserRound className="size-5 text-primary" />
           {u.nome || "(sem nome)"}
           {u.isAdmin && (
-            <span className="rounded bg-info/15 px-2 py-0.5 text-[11px] font-semibold text-info">
+            <span className="rounded bg-info px-2 py-0.5 text-[11px] font-semibold text-info-foreground">
               Admin
             </span>
           )}
@@ -768,11 +803,11 @@ function PlanoAcesso({ token, usuario: u }: { token: string; usuario: Usuario })
 // Pedidos, histórico de acesso e venda registrada pelo admin
 // ---------------------------------------------------------------------
 const COR_PEDIDO: Record<StatusPedido, string> = {
-  pendente: "bg-primary/15 text-primary",
-  pago: "bg-success/15 text-success",
-  cancelado: "bg-muted text-muted-foreground",
-  expirado: "bg-muted text-muted-foreground",
-  estornado: "bg-destructive/15 text-destructive",
+  pendente: "bg-primary text-primary-foreground",
+  pago: "bg-success text-success-foreground",
+  cancelado: "border border-border bg-secondary text-secondary-foreground",
+  expirado: "border border-border bg-secondary text-secondary-foreground",
+  estornado: "bg-destructive text-destructive-foreground",
 };
 
 const ORIGEM_HISTORICO: Record<"pedido" | "estorno" | "admin", string> = {
@@ -968,12 +1003,12 @@ function PedidosPagamentos({ token, usuario: u }: { token: string; usuario: Usua
                     </span>
                     <span className="flex flex-wrap items-center gap-1.5">
                       {p.teste && (
-                        <span className="rounded bg-info/15 px-1.5 py-0.5 text-[10px] font-semibold text-info">
+                        <span className="rounded bg-info px-1.5 py-0.5 text-[10px] font-semibold text-info-foreground">
                           Teste
                         </span>
                       )}
                       {p.precisaRevisao && (
-                        <span className="rounded bg-destructive/15 px-1.5 py-0.5 text-[10px] font-semibold text-destructive">
+                        <span className="rounded bg-destructive px-1.5 py-0.5 text-[10px] font-semibold text-destructive-foreground">
                           Precisa de revisão
                         </span>
                       )}

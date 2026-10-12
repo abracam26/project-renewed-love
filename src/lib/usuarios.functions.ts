@@ -1,8 +1,15 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { cnpjValido, limparCnpj } from "@/lib/cnpj";
-import { cpfValido, hashCpf, limparCpf } from "@/lib/cpf";
-import { acessoAtivo, PLANOS, PLANOS_PAGOS } from "@/lib/planos";
+import { cnpjValido, formatarCnpj, limparCnpj } from "@/lib/cnpj";
+import { cpfValido, formatarCpf, hashCpf, limparCpf } from "@/lib/cpf";
+import {
+  acessoAtivo,
+  formatarDataBR,
+  PLANO_LABEL,
+  PLANOS,
+  PLANOS_PAGOS,
+  type Plano,
+} from "@/lib/planos";
 
 /**
  * Conta do aluno e gestão de usuários pelo admin.
@@ -423,6 +430,105 @@ export const listarUsuarios = createServerFn({ method: "POST" })
       }),
       total: Number(lista[0]?.total ?? 0),
     };
+  });
+
+// ---------------------------------------------------------------------
+// Exportação em CSV (todos os usuários da busca e do filtro, não só a página)
+// ---------------------------------------------------------------------
+const LOTE_EXPORTACAO = 200; // limite por chamada de admin_listar_usuarios
+const MAX_EXPORTACAO = 50000;
+
+/** Célula de CSV separado por ";": aspas quando preciso e proteção contra fórmulas no Excel. */
+function celulaCsv(valor: string | number | null | undefined): string {
+  let v = valor === null || valor === undefined ? "" : String(valor);
+  if (/^[=+\-@\t\r]/.test(v)) v = `'${v}`;
+  return /[";\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+}
+
+function dataHoraBR(iso: string | null | undefined) {
+  if (!iso) return "";
+  return new Date(iso).toLocaleString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+export const exportarUsuariosCsv = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        token: tokenSchema,
+        busca: z.string().max(120).optional(),
+        filtro: z.enum(FILTROS_USUARIOS).default("todos"),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await exigirAdmin(data.token);
+    const busca = data.busca?.trim();
+    const linhas: string[] = [
+      [
+        "Nome",
+        "E-mail",
+        "CPF",
+        "CNPJ",
+        "Instituição",
+        "Tipo de plano",
+        "Acesso válido até",
+        "Acesso ativo",
+        "Cadastro completo",
+        "Administrador",
+        "Forma de login",
+        "Conta criada em",
+        "Último acesso",
+        "Simulados feitos",
+      ].join(";"),
+    ];
+    let total = 0;
+    for (let offset = 0; offset < MAX_EXPORTACAO; offset += LOTE_EXPORTACAO) {
+      const { data: rows, error } = await supabaseAdmin.rpc("admin_listar_usuarios", {
+        ...(busca ? { p_busca: busca } : {}),
+        p_filtro: data.filtro,
+        p_limite: LOTE_EXPORTACAO,
+        p_offset: offset,
+      });
+      if (error) throw new Error(error.message);
+      const lote = rows ?? [];
+      for (const u of lote) {
+        linhas.push(
+          [
+            u.nome,
+            u.email,
+            u.cpf ? formatarCpf(u.cpf) : "",
+            u.cnpj ? formatarCnpj(u.cnpj) : "",
+            u.instituicao,
+            PLANO_LABEL[u.plano as Plano] ?? u.plano,
+            u.plano_validade ? formatarDataBR(u.plano_validade) : "",
+            u.acesso_ativo ? "Sim" : "Não",
+            u.cadastro_completo ? "Sim" : "Não",
+            u.is_admin ? "Sim" : "Não",
+            u.provedor === "google"
+              ? "Google"
+              : u.provedor === "email"
+                ? "E-mail e senha"
+                : u.provedor,
+            dataHoraBR(u.criado_em),
+            dataHoraBR(u.ultimo_acesso),
+            u.simulados,
+          ]
+            .map(celulaCsv)
+            .join(";"),
+        );
+      }
+      total += lote.length;
+      if (lote.length < LOTE_EXPORTACAO) break;
+    }
+    // BOM para o Excel reconhecer acentos (UTF-8)
+    return { csv: "\uFEFF" + linhas.join("\r\n") + "\r\n", total };
   });
 
 export const detalheUsuario = createServerFn({ method: "POST" })
