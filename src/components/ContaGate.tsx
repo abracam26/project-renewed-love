@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { KeyRound, Loader2, UserCheck } from "lucide-react";
@@ -8,6 +8,7 @@ import { cnpjValido, formatarCnpj } from "@/lib/cnpj";
 import { cpfValido, formatarCpf } from "@/lib/cpf";
 import { mensagemErro } from "@/lib/erros";
 import { completarCadastro } from "@/lib/usuarios.functions";
+import { TourBoasVindas } from "@/components/TourBoasVindas";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,6 +28,8 @@ import {
  */
 export function ContaGate({ children }: { children: ReactNode }) {
   const { session, token, loading, status } = useStatusConta();
+  const [avisoFechado, setAvisoFechado] = useState(false);
+  const marcarAvisoFechado = useCallback(() => setAvisoFechado(true), []);
 
   if (!token || !session) return <>{children}</>;
 
@@ -49,7 +52,16 @@ export function ContaGate({ children }: { children: ReactNode }) {
   return (
     <>
       {children}
-      <AvisoSenha userId={session.user.id} ultimoLogin={session.user.last_sign_in_at ?? ""} />
+      <AvisoSenha
+        userId={session.user.id}
+        ultimoLogin={session.user.last_sign_in_at ?? ""}
+        onFechado={marcarAvisoFechado}
+      />
+      <TourBoasVindas
+        userId={session.user.id}
+        isAdmin={Boolean(status?.isAdmin)}
+        podeAbrir={avisoFechado}
+      />
     </>
   );
 }
@@ -61,7 +73,16 @@ function chaveAviso(userId: string, ultimoLogin: string) {
   return `aviso-senha-exame:${userId}:${ultimoLogin}`;
 }
 
-function AvisoSenha({ userId, ultimoLogin }: { userId: string; ultimoLogin: string }) {
+function AvisoSenha({
+  userId,
+  ultimoLogin,
+  onFechado,
+}: {
+  userId: string;
+  ultimoLogin: string;
+  /** avisa quando o aviso não está (ou deixou de estar) na tela, para o tour poder abrir */
+  onFechado: () => void;
+}) {
   const [aberto, setAberto] = useState(() => {
     try {
       return localStorage.getItem(chaveAviso(userId, ultimoLogin)) === null;
@@ -69,6 +90,10 @@ function AvisoSenha({ userId, ultimoLogin }: { userId: string; ultimoLogin: stri
       return true;
     }
   });
+
+  useEffect(() => {
+    if (!aberto) onFechado();
+  }, [aberto, onFechado]);
 
   function confirmar() {
     try {

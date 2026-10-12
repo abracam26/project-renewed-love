@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   BarChart3,
   Clock,
+  Compass,
   CreditCard,
   FileDown,
   FileText,
@@ -18,6 +19,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import logoAsset from "@/assets/abracam-logo.png.asset.json";
 import { ContaGate } from "@/components/ContaGate";
 import { Notificacoes } from "@/components/Notificacoes";
+import { EVENTO_ABRIR_TOUR } from "@/components/TourBoasVindas";
 import { useSupabaseSession } from "@/hooks/use-session";
 import { supabase } from "@/integrations/supabase/client";
 import { guardarDestinoAposLogin } from "@/lib/destino-login";
@@ -101,6 +103,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               preload="intent"
               preloadDelay={20}
               onClick={() => setOpen(false)}
+              data-tour={`menu-${to}`}
               activeOptions={{ exact: to === "/" }}
               className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               activeProps={{
@@ -114,7 +117,18 @@ export function AppShell({ children }: { children: ReactNode }) {
           ))}
         </nav>
 
-        <div className="border-t border-sidebar-border p-3">
+        <div className="space-y-1 border-t border-sidebar-border p-3">
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              window.dispatchEvent(new Event(EVENTO_ABRIR_TOUR));
+            }}
+            className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          >
+            <Compass className="size-4" />
+            Ver tour
+          </button>
           <button
             onClick={handleSignOut}
             className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-destructive transition-colors hover:bg-sidebar-accent"
@@ -145,7 +159,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           <span className="text-sm font-medium text-sidebar-foreground">Painel de Controle</span>
 
           <div className="ml-auto flex items-center gap-4">
-            <Notificacoes />
+            <span data-tour="sino" className="inline-flex">
+              <Notificacoes />
+            </span>
             <div className="flex items-center gap-2">
               <span className="flex size-8 items-center justify-center rounded-full bg-sidebar-accent text-sidebar-accent-foreground">
                 <User className="size-4" />
