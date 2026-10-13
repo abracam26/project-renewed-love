@@ -44,7 +44,7 @@ import {
   planosParaAluno,
   verificarPagamentoPagarme,
 } from "@/lib/pagamentos.functions";
-import type { PixGerado } from "@/lib/pagarme.functions";
+import type { PixGerado } from "@/lib/pagarme.server";
 import { formatarDataBR, nomeDoPlano, novaValidade } from "@/lib/planos";
 import { cn } from "@/lib/utils";
 

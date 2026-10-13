@@ -27,13 +27,7 @@ import {
   type StatusPedido,
 } from "@/lib/pagamentos";
 import { acessoAtivo, hojeSaoPaulo } from "@/lib/planos";
-import {
-  consultarOrdemPagarme,
-  criarOrdemPix,
-  extrairPix,
-  processarPagamentoConfirmado,
-  type PixGerado,
-} from "@/lib/pagarme.functions";
+import type { PixGerado } from "@/lib/pagarme.server";
 
 /**
  * Planos à venda, pedidos e pagamentos.
@@ -395,6 +389,7 @@ async function pixDoPedido(
   if (!p || p.user_id !== userId) throw new Error("Pedido não encontrado.");
   if (p.status !== "pendente") throw new Error("Este pedido não está aguardando pagamento.");
 
+  const { consultarOrdemPagarme, criarOrdemPix, extrairPix } = await import("@/lib/pagarme.server");
   if (p.external_order_id) {
     const ordem = await consultarOrdemPagarme(p.external_order_id);
     const existente = extrairPix(ordem);
@@ -719,6 +714,8 @@ export const verificarPagamentoPagarme = createServerFn({ method: "POST" })
     if (!pedido.external_order_id) return { status: "pendente" as const };
 
     try {
+      const { consultarOrdemPagarme, processarPagamentoConfirmado } =
+        await import("@/lib/pagarme.server");
       const ordem = await consultarOrdemPagarme(pedido.external_order_id);
       if (ordem.status === "paid") {
         await processarPagamentoConfirmado(supabaseAdmin, pedido.id, ordem);
