@@ -238,6 +238,47 @@ function Planos() {
   // Depois de um pedido, a página rola até "Meus pedidos" quando o diálogo termina de fechar
   const rolarDepoisDeFechar = useRef(false);
 
+  // Checkout return: o aluno voltou do Pagar.me; verifica o pagamento automaticamente
+  const verificar = useServerFn(verificarPagamentoPagarme);
+  const queryClient = useQueryClient();
+  const [verificando, setVerificando] = useState(false);
+  const retornoVerificado = useRef(false);
+  const pedidosCarregados = query.data?.pedidos;
+  useEffect(() => {
+    if (retornoVerificado.current || !pedidosCarregados) return;
+    retornoVerificado.current = true;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("checkout") !== "sucesso") return;
+    const codigoPedido = params.get("pedido");
+    window.history.replaceState({}, "", window.location.pathname);
+    if (!codigoPedido || !token) return;
+    const pedido = pedidosCarregados.find((p) => p.codigo === codigoPedido);
+    if (!pedido || pedido.status !== "pendente") return;
+    setVerificando(true);
+    let tentativas = 0;
+    const poll = async () => {
+      try {
+        const r = await verificar({ data: { token, pedidoId: pedido.id } });
+        if (r.status === "pago") {
+          toast.success("Pagamento confirmado! Seu acesso já está liberado.");
+          await queryClient.invalidateQueries({ queryKey: ["planos-aluno"] });
+          setVerificando(false);
+          return;
+        }
+      } catch {
+        // Falha temporária: tenta de novo abaixo
+      }
+      tentativas++;
+      if (tentativas < 6) {
+        setTimeout(poll, 3000);
+      } else {
+        toast.info("O pagamento ainda está sendo processado. Ele será confirmado em breve.");
+        setVerificando(false);
+      }
+    };
+    poll();
+  }, [pedidosCarregados, token, verificar, queryClient]);
+
   if (loading || !token || query.isPending) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center text-sm text-muted-foreground">
@@ -256,40 +297,6 @@ function Planos() {
   const dados = query.data;
   const { atual, planos, formas } = dados;
 
-  // Checkout return: o aluno voltou do Pagar.me; verifica o pagamento automaticamente
-  const verificar = useServerFn(verificarPagamentoPagarme);
-  const queryClient = useQueryClient();
-  const [verificando, setVerificando] = useState(false);
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("checkout") !== "sucesso") return;
-    const codigoPedido = params.get("pedido");
-    window.history.replaceState({}, "", window.location.pathname);
-    if (!codigoPedido || !token) return;
-    const pedido = dados.pedidos.find((p) => p.codigo === codigoPedido);
-    if (!pedido || pedido.status !== "pendente") return;
-    setVerificando(true);
-    let tentativas = 0;
-    const poll = async () => {
-      try {
-        const r = await verificar({ data: { token, pedidoId: pedido.id } });
-        if (r.status === "pago") {
-          toast.success("Pagamento confirmado! Seu acesso já está liberado.");
-          await queryClient.invalidateQueries({ queryKey: ["planos-aluno"] });
-          setVerificando(false);
-          return;
-        }
-      } catch {}
-      tentativas++;
-      if (tentativas < 6) {
-        setTimeout(poll, 3000);
-      } else {
-        toast.info("O pagamento ainda está sendo processado. Ele será confirmado em breve.");
-        setVerificando(false);
-      }
-    };
-    poll();
-  }, []);
   // Pendente com prazo vencido no relógio local já aparece como vencido em toda a página
   const pedidos = normalizarVencidos(dados.pedidos);
   const pendente = pedidos.find((p) => p.status === "pendente");
