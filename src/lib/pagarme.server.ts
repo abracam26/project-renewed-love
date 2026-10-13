@@ -150,8 +150,16 @@ export async function criarOrdemPix(
   const ordem = await apiPagarme<PagarmeOrdem>("POST", "/orders", corpo);
   const pix = extrairPix(ordem);
   if (!pix) {
-    const motivo = ordem.charges?.[0]?.last_transaction?.status;
-    throw new Error(`O Pagar.me não gerou o Pix${motivo ? ` (${motivo})` : ""}. Tente novamente.`);
+    const t = ordem.charges?.[0]?.last_transaction as
+      | { status?: string; gateway_response?: { code?: string; errors?: { message?: string }[] } }
+      | undefined;
+    const erros = (t?.gateway_response?.errors ?? [])
+      .map((e) => e.message)
+      .filter(Boolean)
+      .join("; ");
+    console.error("[Pagar.me] Pix falhou:", JSON.stringify(t ?? ordem).slice(0, 1500));
+    const motivo = erros || t?.gateway_response?.code || t?.status;
+    throw new Error(`O Pagar.me não gerou o Pix${motivo ? `: ${motivo}` : ""}.`);
   }
   const { error } = await supabaseAdmin
     .from("pedidos")
