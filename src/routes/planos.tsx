@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -37,8 +37,14 @@ import {
   type FormaManual,
   type StatusPedido,
 } from "@/lib/pagamentos";
-import { cancelarMeuPedido, criarPedido, planosParaAluno } from "@/lib/pagamentos.functions";
-import { verificarPagamentoPagarme } from "@/lib/pagarme.functions";
+import {
+  cancelarMeuPedido,
+  criarPedido,
+  obterPixPedido,
+  planosParaAluno,
+  verificarPagamentoPagarme,
+} from "@/lib/pagamentos.functions";
+import type { PixGerado } from "@/lib/pagarme.functions";
 import { formatarDataBR, nomeDoPlano, novaValidade } from "@/lib/planos";
 import { cn } from "@/lib/utils";
 
@@ -237,6 +243,7 @@ function Planos() {
   const [dialogoAberto, setDialogoAberto] = useState(false);
   // Depois de um pedido, a página rola até "Meus pedidos" quando o diálogo termina de fechar
   const rolarDepoisDeFechar = useRef(false);
+  const [pixAberto, setPixAberto] = useState<PixAberto | null>(null);
 
   if (loading || !token || query.isPending) {
     return (
@@ -256,40 +263,6 @@ function Planos() {
   const dados = query.data;
   const { atual, planos, formas } = dados;
 
-  // Checkout return: o aluno voltou do Pagar.me; verifica o pagamento automaticamente
-  const verificar = useServerFn(verificarPagamentoPagarme);
-  const queryClient = useQueryClient();
-  const [verificando, setVerificando] = useState(false);
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("checkout") !== "sucesso") return;
-    const codigoPedido = params.get("pedido");
-    window.history.replaceState({}, "", window.location.pathname);
-    if (!codigoPedido || !token) return;
-    const pedido = dados.pedidos.find((p) => p.codigo === codigoPedido);
-    if (!pedido || pedido.status !== "pendente") return;
-    setVerificando(true);
-    let tentativas = 0;
-    const poll = async () => {
-      try {
-        const r = await verificar({ data: { token, pedidoId: pedido.id } });
-        if (r.status === "pago") {
-          toast.success("Pagamento confirmado! Seu acesso já está liberado.");
-          await queryClient.invalidateQueries({ queryKey: ["planos-aluno"] });
-          setVerificando(false);
-          return;
-        }
-      } catch {}
-      tentativas++;
-      if (tentativas < 6) {
-        setTimeout(poll, 3000);
-      } else {
-        toast.info("O pagamento ainda está sendo processado. Ele será confirmado em breve.");
-        setVerificando(false);
-      }
-    };
-    poll();
-  }, []);
   // Pendente com prazo vencido no relógio local já aparece como vencido em toda a página
   const pedidos = normalizarVencidos(dados.pedidos);
   const pendente = pedidos.find((p) => p.status === "pendente");
@@ -334,12 +307,6 @@ function Planos() {
 
   return (
     <div className="space-y-5">
-      {verificando && (
-        <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 p-4 text-sm text-primary">
-          <Loader2 className="size-4 animate-spin" />
-          Verificando seu pagamento…
-        </div>
-      )}
       <div>
         <h1 className="text-2xl font-bold text-foreground">Planos</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -491,6 +458,8 @@ function Planos() {
                 formas={formas}
                 bloqueado={bloqueado}
                 superado={superado(p)}
+                online={dados.gateway === "pagarme"}
+                onPagarPix={setPixAberto}
               />
             ))}
           </ul>
@@ -518,13 +487,124 @@ function Planos() {
                 atualizando={query.isFetching}
                 onVoltar={() => setDialogoAberto(false)}
                 onIrParaPedidos={irParaPedidos}
+                onPix={(x) => {
+                  setDialogoAberto(false);
+                  setPixAberto(x);
+                }}
               />
             ) : (
               <PlanoIndisponivel onVoltar={() => setDialogoAberto(false)} />
             ))}
         </DialogContent>
       </Dialog>
+
+      {pixAberto && (
+        <JanelaPix token={token} alvo={pixAberto} onFechar={() => setPixAberto(null)} />
+      )}
     </div>
+  );
+}
+
+type PixAberto = { pedidoId: string; codigo: string; valor: number; pix: PixGerado | null };
+
+/** QR Code do Pix (Pagar.me) e conferência automática do pagamento enquanto está aberta. */
+function JanelaPix({
+  token,
+  alvo,
+  onFechar,
+}: {
+  token: string;
+  alvo: PixAberto;
+  onFechar: () => void;
+}) {
+  const obter = useServerFn(obterPixPedido);
+  const verificar = useServerFn(verificarPagamentoPagarme);
+  const queryClient = useQueryClient();
+  const qPix = useQuery({
+    queryKey: ["pix-pedido", alvo.pedidoId],
+    queryFn: () => obter({ data: { token, pedidoId: alvo.pedidoId } }),
+    enabled: !alvo.pix,
+    retry: false,
+    ...(alvo.pix ? { initialData: alvo.pix } : {}),
+  });
+  const qStatus = useQuery({
+    queryKey: ["pix-status", alvo.pedidoId],
+    queryFn: async () => {
+      const r = await verificar({ data: { token, pedidoId: alvo.pedidoId } });
+      if (r.status === "pago") {
+        toast.success("Pagamento confirmado! Seu acesso já está liberado.");
+        await queryClient.invalidateQueries({ queryKey: ["planos-aluno"] });
+        onFechar();
+      }
+      return r.status;
+    },
+    enabled: Boolean(qPix.data),
+    refetchInterval: 5000,
+  });
+  const pix = qPix.data;
+
+  async function copiar() {
+    if (!pix) return;
+    try {
+      await navigator.clipboard.writeText(pix.qrCode);
+      toast.success("Código Pix copiado.");
+    } catch {
+      toast.error("Não foi possível copiar. Selecione o código e copie manualmente.");
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(aberto) => !aberto && onFechar()}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto bg-card text-card-foreground sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Pagar com Pix</DialogTitle>
+          <DialogDescription>
+            Pedido <span className="font-mono">{alvo.codigo}</span> · {formatarReais(alvo.valor)}
+          </DialogDescription>
+        </DialogHeader>
+        {qPix.isError ? (
+          <p className="text-sm text-destructive">{mensagemErro(qPix.error)}</p>
+        ) : !pix ? (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin text-primary" /> Gerando o Pix...
+          </p>
+        ) : (
+          <div className="space-y-3">
+            <img
+              src={pix.qrCodeUrl}
+              alt="QR Code do Pix"
+              className="mx-auto size-56 rounded-md bg-white p-2"
+            />
+            <p className="text-xs text-muted-foreground">
+              Abra o app do seu banco, escolha Pix e leia o QR Code, ou use o Pix copia e cola:
+            </p>
+            <textarea
+              readOnly
+              value={pix.qrCode}
+              rows={3}
+              onFocus={(e) => e.currentTarget.select()}
+              className="w-full resize-none rounded-md border border-border bg-background p-2 font-mono text-[11px] text-foreground"
+            />
+            <button
+              type="button"
+              onClick={copiar}
+              className="w-full rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
+            >
+              Copiar código Pix
+            </button>
+            {pix.expiraEm && (
+              <p className="text-xs text-muted-foreground">Válido até {dataHora(pix.expiraEm)}.</p>
+            )}
+            <p className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="size-3.5 animate-spin text-primary" />
+              {qStatus.data === "falhou"
+                ? "O Pix foi recusado ou cancelado. Feche e tente de novo."
+                : "Aguardando o pagamento. Esta janela confirma sozinha quando o Pix cair."}
+            </p>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -746,6 +826,7 @@ function FormContratar({
   atualizando,
   onVoltar,
   onIrParaPedidos,
+  onPix,
 }: {
   token: string;
   plano: PlanoVenda;
@@ -757,6 +838,8 @@ function FormContratar({
   onVoltar: () => void;
   /** Fecha o diálogo e rola até "Meus pedidos" */
   onIrParaPedidos: () => void;
+  /** Pagamento online: abre o QR Code do Pix */
+  onPix: (x: PixAberto) => void;
 }) {
   const { atual, comprador: docs, formas, prazoDias } = dados;
   const criar = useServerFn(criarPedido);
@@ -839,11 +922,9 @@ function FormContratar({
         },
       }),
     onSuccess: async (r, v) => {
-      if (r.checkoutUrl) {
-        toast.success(`Pedido ${r.codigo} criado. Redirecionando para o pagamento…`);
+      if (r.pix) {
         await queryClient.invalidateQueries({ queryKey: ["planos-aluno"] });
-        window.open(r.checkoutUrl, "_blank");
-        onIrParaPedidos();
+        onPix({ pedidoId: r.pedidoId, codigo: r.codigo, valor: plano.precoCentavos, pix: r.pix });
         return;
       }
       if (v.manterEsperado && !r.reaproveitado) {
@@ -1085,6 +1166,8 @@ function CartaoPedido({
   formas,
   bloqueado,
   superado,
+  online,
+  onPagarPix,
 }: {
   token: string;
   pedido: Pedido;
@@ -1093,6 +1176,9 @@ function CartaoPedido({
   bloqueado: boolean;
   /** Outro pedido foi pago depois deste (superadoEm): sem os avisos "não faça outro pedido" */
   superado: boolean;
+  /** Pagamento online (Pagar.me) ativo */
+  online: boolean;
+  onPagarPix: (x: PixAberto) => void;
 }) {
   const cancelar = useServerFn(cancelarMeuPedido);
   const queryClient = useQueryClient();
@@ -1160,10 +1246,22 @@ function CartaoPedido({
                 <strong>{p.metodo ? METODO_PAGAMENTO_LABEL[p.metodo] : "—"}</strong> · Valor:{" "}
                 <strong>{formatarReais(p.valorTotal)}</strong>
               </p>
-              <p className="mt-2 whitespace-pre-line">
-                {instrucoes ||
-                  `Fale com a ABRACAM pelo e-mail ${CONTROLADOR.emailContato} informando o código do pedido ${p.codigo}.`}
-              </p>
+              {online && p.metodo === "pix" ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    onPagarPix({ pedidoId: p.id, codigo: p.codigo, valor: p.valorTotal, pix: null })
+                  }
+                  className="mt-2 rounded-md bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground"
+                >
+                  Pagar com Pix (QR Code)
+                </button>
+              ) : (
+                <p className="mt-2 whitespace-pre-line">
+                  {instrucoes ||
+                    `Fale com a ABRACAM pelo e-mail ${CONTROLADOR.emailContato} informando o código do pedido ${p.codigo}.`}
+                </p>
+              )}
               {p.expiraEm && (
                 <p className="mt-2 flex items-start gap-1.5 text-xs">
                   <Clock className="mt-0.5 size-3.5 shrink-0 text-primary" />

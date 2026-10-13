@@ -27,7 +27,13 @@ import {
   type StatusPedido,
 } from "@/lib/pagamentos";
 import { acessoAtivo, hojeSaoPaulo } from "@/lib/planos";
-import { criarOrdemPagarme, type DadosCriacao } from "@/lib/pagarme.functions";
+import {
+  consultarOrdemPagarme,
+  criarOrdemPix,
+  extrairPix,
+  processarPagamentoConfirmado,
+  type PixGerado,
+} from "@/lib/pagarme.functions";
 
 /**
  * Planos à venda, pedidos e pagamentos.
@@ -358,49 +364,71 @@ export const criarPedido = createServerFn({ method: "POST" })
     erroRpc(error);
     const res = r as { pedido_id: string; codigo: string; reaproveitado: boolean };
 
-    let checkoutUrl: string | null = null;
-    if (config.gateway === "pagarme" && !res.reaproveitado) {
-      const { data: perfil } = await supabaseAdmin
-        .from("profiles")
-        .select("full_name, email, cpf, cnpj")
-        .eq("id", user.id)
-        .single();
-      const { data: plano } = await supabaseAdmin
-        .from("planos")
-        .select("nome, preco_centavos, preco_associado_centavos")
-        .eq("id", data.planoId)
-        .single();
-      if (perfil && plano) {
-        const documento = data.comprador === "cnpj" && perfil.cnpj ? perfil.cnpj : perfil.cpf;
-        const associado = await associadoVigente(supabaseAdmin, user.id, user.email);
-        const valor =
-          associado && plano.preco_associado_centavos !== null
-            ? plano.preco_associado_centavos
-            : plano.preco_centavos;
-        const dadosPagarme: DadosCriacao = {
-          pedidoId: res.pedido_id,
-          codigo: res.codigo,
-          planoNome: plano.nome,
-          valorCentavos: valor,
-          compradorNome: perfil.full_name ?? user.email ?? "Aluno",
-          compradorEmail: user.email ?? perfil.email ?? "",
-          compradorDocumento: documento ?? "",
-          compradorTipo: data.comprador === "cnpj" ? "cnpj" : "cpf",
-          formasPagamento: config.formasOnline.length > 0 ? config.formasOnline : ["pix", "cartao"],
-          successUrl: `https://simulador.abracam.com/planos?checkout=sucesso&pedido=${res.codigo}`,
-          expiracaoSegundos: config.prazoPedidoDias > 0 ? config.prazoPedidoDias * 86400 : 259200,
-        };
-        const resultado = await criarOrdemPagarme(supabaseAdmin, dadosPagarme);
-        checkoutUrl = resultado.checkoutUrl;
-      }
-    }
+    const pix =
+      config.gateway === "pagarme" && data.metodo === "pix"
+        ? await pixDoPedido(supabaseAdmin, res.pedido_id, user.id, user.email ?? null)
+        : null;
 
     return {
       pedidoId: res.pedido_id,
       codigo: res.codigo,
       reaproveitado: res.reaproveitado,
-      checkoutUrl,
+      pix,
     };
+  });
+
+/** Pix do pedido no Pagar.me: reaproveita a ordem já criada ou gera uma nova. */
+async function pixDoPedido(
+  supabaseAdmin: SupabaseAdmin,
+  pedidoId: string,
+  userId: string,
+  emailUsuario: string | null,
+): Promise<PixGerado> {
+  const { data: p, error } = await supabaseAdmin
+    .from("pedidos")
+    .select(
+      "id, codigo, status, user_id, external_order_id, plano_nome, valor_total, comprador_nome, comprador_documento, comprador_email, comprador_tipo, expira_em",
+    )
+    .eq("id", pedidoId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!p || p.user_id !== userId) throw new Error("Pedido não encontrado.");
+  if (p.status !== "pendente") throw new Error("Este pedido não está aguardando pagamento.");
+
+  if (p.external_order_id) {
+    const ordem = await consultarOrdemPagarme(p.external_order_id);
+    const existente = extrairPix(ordem);
+    const vencido = existente?.expiraEm && new Date(existente.expiraEm) <= new Date();
+    if (ordem.status === "pending" && existente && !vencido) {
+      return { ordemId: ordem.id, ...existente };
+    }
+  }
+
+  const segundosAtePrazo = p.expira_em
+    ? Math.floor((new Date(p.expira_em).getTime() - Date.now()) / 1000)
+    : 3 * 86400;
+  return criarOrdemPix(supabaseAdmin, {
+    pedidoId: p.id,
+    codigo: p.codigo,
+    planoNome: p.plano_nome,
+    valorCentavos: p.valor_total,
+    compradorNome: p.comprador_nome,
+    compradorEmail: p.comprador_email ?? emailUsuario ?? "",
+    compradorDocumento: p.comprador_documento,
+    compradorTipo: p.comprador_tipo === "cnpj" ? "cnpj" : "cpf",
+    expiracaoSegundos: Math.max(600, Math.min(segundosAtePrazo, 30 * 86400)),
+  });
+}
+
+export const obterPixPedido = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) =>
+    z.object({ token: tokenSchema, pedidoId: z.string().uuid() }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin, user } = await usuarioLogado(data.token);
+    const config = await carregarConfig(supabaseAdmin);
+    if (config.gateway !== "pagarme") throw new Error("O pagamento online não está ativo.");
+    return pixDoPedido(supabaseAdmin, data.pedidoId, user.id, user.email ?? null);
   });
 
 export const cancelarMeuPedido = createServerFn({ method: "POST" })
@@ -637,7 +665,9 @@ export const salvarConfigPagamento = createServerFn({ method: "POST" })
         );
       }
       if (!data.pagarmeChavePublica.trim()) {
-        throw new Error("A chave pública do Pagar.me precisa ser informada antes de ativar o pagamento online.");
+        throw new Error(
+          "A chave pública do Pagar.me precisa ser informada antes de ativar o pagamento online.",
+        );
       }
     }
     const instrucoes: Record<string, string> = {};
@@ -664,6 +694,44 @@ export const salvarConfigPagamento = createServerFn({ method: "POST" })
     );
     if (error) throw new Error(error.message);
     return { ok: true as const };
+  });
+
+// ---------------------------------------------------------------------
+// Aluno: verificar pagamento Pagar.me (polling do frontend)
+// ---------------------------------------------------------------------
+export const verificarPagamentoPagarme = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) =>
+    z.object({ token: tokenSchema, pedidoId: z.string().uuid() }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin, user } = await usuarioLogado(data.token);
+    const { data: pedido, error } = await supabaseAdmin
+      .from("pedidos")
+      .select("id, status, external_order_id, user_id")
+      .eq("id", data.pedidoId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!pedido) throw new Error("Pedido não encontrado.");
+    if (pedido.user_id !== user.id) throw new Error("Pedido não encontrado.");
+    if (pedido.status === "pago") return { status: "pago" as const };
+    if (pedido.status !== "pendente")
+      return { status: pedido.status as "cancelado" | "expirado" | "estornado" };
+    if (!pedido.external_order_id) return { status: "pendente" as const };
+
+    try {
+      const ordem = await consultarOrdemPagarme(pedido.external_order_id);
+      if (ordem.status === "paid") {
+        await processarPagamentoConfirmado(supabaseAdmin, pedido.id, ordem);
+        return { status: "pago" as const };
+      }
+      if (ordem.status === "canceled" || ordem.status === "failed") {
+        return { status: "falhou" as const };
+      }
+      return { status: "pendente" as const };
+    } catch (e) {
+      console.error("[Pagar.me] Erro ao verificar:", e);
+      return { status: "pendente" as const };
+    }
   });
 
 // ---------------------------------------------------------------------

@@ -1,13 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { exigirAdmin, tokenSchema, usuarioLogado, type SupabaseAdmin } from "@/lib/auth-servidor";
+import { exigirAdmin, tokenSchema, type SupabaseAdmin } from "@/lib/auth-servidor";
 
 /**
  * Integração com a API v5 do Pagar.me (pagamento online).
  *
- * - O servidor cria a ordem e devolve a URL do checkout hospedado do Pagar.me.
- * - O aluno é redirecionado para o checkout e pode pagar com Pix, cartão ou boleto.
- * - Na volta ao site, o servidor consulta o status da ordem e confirma o pagamento.
+ * - O servidor cria a ordem Pix e devolve o QR Code, mostrado no próprio site.
+ * - Enquanto o QR Code está aberto, o site consulta a ordem e confirma o pagamento.
  * - Um webhook (Supabase Edge Function) confirma automaticamente quando o aluno
  *   fecha o navegador depois de pagar.
  */
@@ -60,7 +59,7 @@ async function apiPagarme<T = unknown>(
 // -----------------------------------------------------------------------
 // Tipos do Pagar.me
 // -----------------------------------------------------------------------
-type PagarmeOrdem = {
+export type PagarmeOrdem = {
   id: string;
   code: string;
   status: "pending" | "paid" | "canceled" | "failed" | "closed";
@@ -98,7 +97,7 @@ type PagarmeCheckout = {
 };
 
 // -----------------------------------------------------------------------
-// Criar ordem com checkout
+// Criar ordem Pix
 // -----------------------------------------------------------------------
 export type DadosCriacao = {
   pedidoId: string;
@@ -109,19 +108,21 @@ export type DadosCriacao = {
   compradorEmail: string;
   compradorDocumento: string;
   compradorTipo: "cpf" | "cnpj";
-  formasPagamento: ("pix" | "cartao" | "boleto")[];
-  successUrl: string;
   expiracaoSegundos: number;
 };
 
-export async function criarOrdemPagarme(
+export type PixGerado = {
+  ordemId: string;
+  qrCode: string;
+  qrCodeUrl: string;
+  expiraEm: string | null;
+};
+
+/** Pix direto pela API (não depende do Checkout hospedado, que precisa ser liberado por conta). */
+export async function criarOrdemPix(
   supabaseAdmin: SupabaseAdmin,
   dados: DadosCriacao,
-): Promise<{ ordemId: string; checkoutUrl: string }> {
-  const metodosPagarme = dados.formasPagamento.map((f) =>
-    f === "cartao" ? "credit_card" : f,
-  );
-
+): Promise<PixGerado> {
   const corpo = {
     code: dados.codigo,
     items: [
@@ -136,40 +137,31 @@ export async function criarOrdemPagarme(
       name: dados.compradorNome,
       email: dados.compradorEmail,
       type: dados.compradorTipo === "cnpj" ? "company" : "individual",
-      document: dados.compradorDocumento,
+      document: dados.compradorDocumento.replace(/\D/g, ""),
       document_type: dados.compradorTipo === "cnpj" ? "CNPJ" : "CPF",
     },
-    payments: [
-      {
-        payment_method: "checkout",
-        checkout: {
-          expires_in: dados.expiracaoSegundos,
-          accepted_payment_methods: metodosPagarme,
-          success_url: dados.successUrl,
-          default_payment_method: metodosPagarme.includes("pix") ? "pix" : metodosPagarme[0],
-          customer_editable: false,
-          billing_address_editable: false,
-          skip_checkout_success_page: false,
-        },
-      },
-    ],
-    closed: true,
+    payments: [{ payment_method: "pix", pix: { expires_in: dados.expiracaoSegundos } }],
     metadata: { pedido_id: dados.pedidoId, codigo: dados.codigo },
   };
-
   const ordem = await apiPagarme<PagarmeOrdem>("POST", "/orders", corpo);
-
-  const checkout = ordem.checkouts?.[0];
-  if (!checkout?.payment_url) {
-    throw new Error("O Pagar.me não retornou a URL do checkout. Tente novamente.");
+  const pix = extrairPix(ordem);
+  if (!pix) {
+    const motivo = ordem.charges?.[0]?.last_transaction?.status;
+    throw new Error(`O Pagar.me não gerou o Pix${motivo ? ` (${motivo})` : ""}. Tente novamente.`);
   }
-
-  await supabaseAdmin
+  const { error } = await supabaseAdmin
     .from("pedidos")
     .update({ external_order_id: ordem.id, gateway: "pagarme" })
     .eq("id", dados.pedidoId);
+  if (error) throw new Error(error.message);
+  return { ordemId: ordem.id, ...pix };
+}
 
-  return { ordemId: ordem.id, checkoutUrl: checkout.payment_url };
+export function extrairPix(ordem: PagarmeOrdem) {
+  const t = ordem.charges?.[0]?.last_transaction as
+    (PagarmeCharge["last_transaction"] & { expires_at?: string }) | undefined;
+  if (!t?.qr_code || !t.qr_code_url) return null;
+  return { qrCode: t.qr_code, qrCodeUrl: t.qr_code_url, expiraEm: t.expires_at ?? null };
 }
 
 // -----------------------------------------------------------------------
@@ -243,43 +235,6 @@ export async function processarPagamentoConfirmado(
 }
 
 // -----------------------------------------------------------------------
-// Server function: verificar pagamento (polling do frontend)
-// -----------------------------------------------------------------------
-export const verificarPagamentoPagarme = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) =>
-    z.object({ token: tokenSchema, pedidoId: z.string().uuid() }).parse(d),
-  )
-  .handler(async ({ data }) => {
-    const { supabaseAdmin, user } = await usuarioLogado(data.token);
-    const { data: pedido, error } = await supabaseAdmin
-      .from("pedidos")
-      .select("id, status, external_order_id, user_id")
-      .eq("id", data.pedidoId)
-      .maybeSingle();
-    if (error) throw new Error(error.message);
-    if (!pedido) throw new Error("Pedido não encontrado.");
-    if (pedido.user_id !== user.id) throw new Error("Pedido não encontrado.");
-    if (pedido.status === "pago") return { status: "pago" as const };
-    if (pedido.status !== "pendente") return { status: pedido.status as "cancelado" | "expirado" | "estornado" };
-    if (!pedido.external_order_id) return { status: "pendente" as const };
-
-    try {
-      const ordem = await consultarOrdemPagarme(pedido.external_order_id);
-      if (ordem.status === "paid") {
-        await processarPagamentoConfirmado(supabaseAdmin, pedido.id, ordem);
-        return { status: "pago" as const };
-      }
-      if (ordem.status === "canceled" || ordem.status === "failed") {
-        return { status: "falhou" as const };
-      }
-      return { status: "pendente" as const };
-    } catch (e) {
-      console.error("[Pagar.me] Erro ao verificar:", e);
-      return { status: "pendente" as const };
-    }
-  });
-
-// -----------------------------------------------------------------------
 // Admin: verificar todos os pedidos pendentes do Pagar.me
 // -----------------------------------------------------------------------
 export const verificarPedidosPendentes = createServerFn({ method: "POST" })
@@ -301,11 +256,7 @@ export const verificarPedidosPendentes = createServerFn({ method: "POST" })
       try {
         const ordem = await consultarOrdemPagarme(p.external_order_id!);
         if (ordem.status === "paid") {
-          const { jaRegistrado } = await processarPagamentoConfirmado(
-            supabaseAdmin,
-            p.id,
-            ordem,
-          );
+          const { jaRegistrado } = await processarPagamentoConfirmado(supabaseAdmin, p.id, ordem);
           if (!jaRegistrado) confirmados++;
         }
       } catch {
