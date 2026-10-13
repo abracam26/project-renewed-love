@@ -40,7 +40,10 @@ const EXEMPLO_INSTRUCOES: Record<FormaManual, string> = {
 type Modo = "teste" | "producao";
 const MODO_LABEL: Record<Modo, string> = { teste: "teste", producao: "produção" };
 
+type Gateway = "manual" | "pagarme";
+
 type Form = {
+  gateway: Gateway;
   prazo: string;
   formas: FormaManual[];
   instrucoes: Record<FormaManual, string>;
@@ -49,6 +52,7 @@ type Form = {
 
 function formDe(c: DadosConfig): Form {
   return {
+    gateway: c.gateway as Gateway,
     prazo: String(c.prazoPedidoDias),
     formas: FORMAS_MANUAIS.filter((f) => c.formasManual.includes(f)),
     instrucoes: Object.fromEntries(FORMAS_MANUAIS.map((f) => [f, c.instrucoes[f] ?? ""])) as Record<
@@ -67,7 +71,7 @@ function payload(f: Form) {
     if (texto) instrucoes[forma] = texto;
   }
   return {
-    gateway: "manual" as const,
+    gateway: f.gateway,
     prazoPedidoDias: Number(f.prazo),
     formasManual: FORMAS_MANUAIS.filter((forma) => f.formas.includes(forma)),
     instrucoes,
@@ -194,47 +198,37 @@ export function ConfigPagamento({ token }: { token: string }) {
             Como o pagamento é confirmado
           </legend>
           <div className="mt-2 grid gap-3 sm:grid-cols-2">
-            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-primary bg-primary/10 p-4">
-              <input
-                type="radio"
-                name="gateway"
-                value="manual"
-                checked
-                readOnly
-                className="mt-0.5 size-4 accent-primary"
-              />
-              <span>
-                <span className="block text-sm font-semibold text-card-foreground">
-                  {GATEWAY_LABEL.manual}
-                </span>
-                <span className="mt-0.5 block text-xs text-muted-foreground">
-                  O aluno faz o pedido e paga por fora. Você confere o pagamento e confirma na lista
-                  de pedidos.
-                </span>
-              </span>
-            </label>
-            <label
-              aria-disabled="true"
-              className="flex cursor-not-allowed items-start gap-3 rounded-lg border border-border p-4 opacity-60"
-            >
-              <input
-                type="radio"
-                name="gateway"
-                value="pagarme"
-                checked={false}
-                disabled
-                readOnly
-                className="mt-0.5 size-4"
-              />
-              <span>
-                <span className="block text-sm font-semibold text-card-foreground">
-                  Pagar.me (pagamento online)
-                </span>
-                <span className="mt-0.5 block text-xs text-muted-foreground">
-                  Disponível na Etapa 2 da integração
-                </span>
-              </span>
-            </label>
+            {(["manual", "pagarme"] as const).map((gw) => {
+              const selecionado = form.gateway === gw;
+              const descricao =
+                gw === "manual"
+                  ? "O aluno faz o pedido e paga por fora. Você confere o pagamento e confirma na lista de pedidos."
+                  : "O aluno é redirecionado para o checkout do Pagar.me e paga com Pix, cartão ou boleto. O pagamento é confirmado automaticamente.";
+              return (
+                <label
+                  key={gw}
+                  className={cn(
+                    "flex cursor-pointer items-start gap-3 rounded-lg border p-4",
+                    selecionado ? "border-primary bg-primary/10" : "border-border",
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="gateway"
+                    value={gw}
+                    checked={selecionado}
+                    onChange={() => set("gateway", gw)}
+                    className="mt-0.5 size-4 accent-primary"
+                  />
+                  <span>
+                    <span className="block text-sm font-semibold text-card-foreground">
+                      {GATEWAY_LABEL[gw]}
+                    </span>
+                    <span className="mt-0.5 block text-xs text-muted-foreground">{descricao}</span>
+                  </span>
+                </label>
+              );
+            })}
           </div>
         </fieldset>
 
@@ -321,11 +315,11 @@ export function ConfigPagamento({ token }: { token: string }) {
         {/* Pagar.me */}
         <fieldset className="rounded-lg border border-border p-4">
           <legend className="px-1 text-sm font-semibold text-card-foreground">
-            Pagar.me (preparação)
+            Pagar.me (chaves de API)
           </legend>
           <p className="text-xs text-muted-foreground">
-            Ainda não está em uso. Deixe as chaves prontas para quando o pagamento online for
-            ligado.
+            Configure as chaves do Pagar.me para habilitar o pagamento online. Use primeiro as
+            chaves de teste para validar a integração.
           </p>
 
           <label className="mt-3 block text-xs text-muted-foreground">

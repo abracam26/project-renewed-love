@@ -27,14 +27,13 @@ import {
   type StatusPedido,
 } from "@/lib/pagamentos";
 import { acessoAtivo, hojeSaoPaulo } from "@/lib/planos";
+import { criarOrdemPagarme, type DadosCriacao } from "@/lib/pagarme.functions";
 
 /**
- * Planos à venda, pedidos e pagamentos (Etapa 1: o aluno faz o pedido e paga
- * por fora; o admin confirma o pagamento e o acesso é liberado na hora).
- * Tudo que mexe em dinheiro ou acesso passa pelas funções do banco
- * (criar_pedido, registrar_pagamento_pedido, cancelar_pedido,
- * estornar_pedido), que travam pedido e perfil. Os mesmos caminhos serão
- * usados pelo aviso do Pagar.me na Etapa 2.
+ * Planos à venda, pedidos e pagamentos.
+ * Gateway "manual": o aluno paga por fora e o admin confirma.
+ * Gateway "pagarme": o aluno é redirecionado ao checkout do Pagar.me;
+ * a confirmação vem pelo polling do frontend ou pelo webhook (Edge Function).
  */
 
 const CHAVE_CONFIG = "pagamento_config";
@@ -52,6 +51,7 @@ const configLeitura = z.object({
   gateway: z.enum(GATEWAYS).catch("manual"),
   prazo_pedido_dias: z.number().int().min(0).max(30).catch(3),
   formas_manual: z.array(z.enum(FORMAS_MANUAIS)).min(1).catch(["pix"]),
+  formas_online: z.array(z.enum(FORMAS_PAGAMENTO)).catch(["pix", "cartao"]),
   instrucoes: z.record(z.string()).catch({}),
   pagarme: z.object({ chave_publica: z.string().catch("") }).catch({ chave_publica: "" }),
 });
@@ -59,6 +59,7 @@ export type ConfigPagamento = {
   gateway: (typeof GATEWAYS)[number];
   prazoPedidoDias: number;
   formasManual: FormaManual[];
+  formasOnline: (typeof FORMAS_PAGAMENTO)[number][];
   instrucoes: Partial<Record<FormaManual, string>>;
   pagarmeChavePublica: string;
 };
@@ -80,6 +81,7 @@ function lerConfig(valor: string | null | undefined): ConfigPagamento {
     gateway: c.gateway,
     prazoPedidoDias: c.prazo_pedido_dias,
     formasManual: [...new Set(c.formas_manual)],
+    formasOnline: [...new Set(c.formas_online)] as (typeof FORMAS_PAGAMENTO)[number][],
     instrucoes,
     pagarmeChavePublica: c.pagarme.chave_publica.trim(),
   };
@@ -302,6 +304,7 @@ export const planosParaAluno = createServerFn({ method: "POST" })
         cnpj: perfil?.cnpj ? mascararDocumento(perfil.cnpj) : null,
         empresa: perfil?.instituicao ?? null,
       },
+      gateway: config.gateway,
       formas: config.formasManual.map((f) => ({
         metodo: f,
         rotulo: METODO_PAGAMENTO_LABEL[f],
@@ -336,9 +339,6 @@ export const criarPedido = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin, user } = await usuarioLogado(data.token);
     const config = await carregarConfig(supabaseAdmin);
-    if (config.gateway !== "manual") {
-      throw new Error("O pagamento online ainda não está disponível.");
-    }
     if (!config.formasManual.includes(data.metodo)) {
       throw new Error("Esta forma de pagamento não está disponível no momento.");
     }
@@ -357,7 +357,50 @@ export const criarPedido = createServerFn({ method: "POST" })
     });
     erroRpc(error);
     const res = r as { pedido_id: string; codigo: string; reaproveitado: boolean };
-    return { pedidoId: res.pedido_id, codigo: res.codigo, reaproveitado: res.reaproveitado };
+
+    let checkoutUrl: string | null = null;
+    if (config.gateway === "pagarme" && !res.reaproveitado) {
+      const { data: perfil } = await supabaseAdmin
+        .from("profiles")
+        .select("full_name, email, cpf, cnpj")
+        .eq("id", user.id)
+        .single();
+      const { data: plano } = await supabaseAdmin
+        .from("planos")
+        .select("nome, preco_centavos, preco_associado_centavos")
+        .eq("id", data.planoId)
+        .single();
+      if (perfil && plano) {
+        const documento = data.comprador === "cnpj" && perfil.cnpj ? perfil.cnpj : perfil.cpf;
+        const associado = await associadoVigente(supabaseAdmin, user.id, user.email);
+        const valor =
+          associado && plano.preco_associado_centavos !== null
+            ? plano.preco_associado_centavos
+            : plano.preco_centavos;
+        const dadosPagarme: DadosCriacao = {
+          pedidoId: res.pedido_id,
+          codigo: res.codigo,
+          planoNome: plano.nome,
+          valorCentavos: valor,
+          compradorNome: perfil.full_name ?? user.email ?? "Aluno",
+          compradorEmail: user.email ?? perfil.email ?? "",
+          compradorDocumento: documento ?? "",
+          compradorTipo: data.comprador === "cnpj" ? "cnpj" : "cpf",
+          formasPagamento: config.formasOnline.length > 0 ? config.formasOnline : ["pix", "cartao"],
+          successUrl: `https://simulador.abracam.com/planos?checkout=sucesso&pedido=${res.codigo}`,
+          expiracaoSegundos: config.prazoPedidoDias > 0 ? config.prazoPedidoDias * 86400 : 259200,
+        };
+        const resultado = await criarOrdemPagarme(supabaseAdmin, dadosPagarme);
+        checkoutUrl = resultado.checkoutUrl;
+      }
+    }
+
+    return {
+      pedidoId: res.pedido_id,
+      codigo: res.codigo,
+      reaproveitado: res.reaproveitado,
+      checkoutUrl,
+    };
   });
 
 export const cancelarMeuPedido = createServerFn({ method: "POST" })
@@ -586,8 +629,16 @@ export const salvarConfigPagamento = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { supabaseAdmin, user } = await exigirAdmin(data.token);
-    if (data.gateway !== "manual") {
-      throw new Error("A integração com o Pagar.me será ligada na Etapa 2.");
+    if (data.gateway === "pagarme") {
+      const chave = process.env["PAGARME_SECRET_KEY"]?.trim();
+      if (!chave) {
+        throw new Error(
+          "A chave secreta do Pagar.me (PAGARME_SECRET_KEY) não está configurada no servidor.",
+        );
+      }
+      if (!data.pagarmeChavePublica.trim()) {
+        throw new Error("A chave pública do Pagar.me precisa ser informada antes de ativar o pagamento online.");
+      }
     }
     const instrucoes: Record<string, string> = {};
     for (const f of FORMAS_MANUAIS) {
@@ -598,6 +649,7 @@ export const salvarConfigPagamento = createServerFn({ method: "POST" })
       gateway: data.gateway,
       prazo_pedido_dias: data.prazoPedidoDias,
       formas_manual: [...new Set(data.formasManual)],
+      formas_online: data.gateway === "pagarme" ? ["pix", "cartao"] : [],
       instrucoes,
       pagarme: { chave_publica: data.pagarmeChavePublica },
     });

@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -38,6 +38,7 @@ import {
   type StatusPedido,
 } from "@/lib/pagamentos";
 import { cancelarMeuPedido, criarPedido, planosParaAluno } from "@/lib/pagamentos.functions";
+import { verificarPagamentoPagarme } from "@/lib/pagarme.functions";
 import { formatarDataBR, nomeDoPlano, novaValidade } from "@/lib/planos";
 import { cn } from "@/lib/utils";
 
@@ -254,6 +255,41 @@ function Planos() {
 
   const dados = query.data;
   const { atual, planos, formas } = dados;
+
+  // Checkout return: o aluno voltou do Pagar.me; verifica o pagamento automaticamente
+  const verificar = useServerFn(verificarPagamentoPagarme);
+  const queryClient = useQueryClient();
+  const [verificando, setVerificando] = useState(false);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("checkout") !== "sucesso") return;
+    const codigoPedido = params.get("pedido");
+    window.history.replaceState({}, "", window.location.pathname);
+    if (!codigoPedido || !token) return;
+    const pedido = dados.pedidos.find((p) => p.codigo === codigoPedido);
+    if (!pedido || pedido.status !== "pendente") return;
+    setVerificando(true);
+    let tentativas = 0;
+    const poll = async () => {
+      try {
+        const r = await verificar({ data: { token, pedidoId: pedido.id } });
+        if (r.status === "pago") {
+          toast.success("Pagamento confirmado! Seu acesso já está liberado.");
+          await queryClient.invalidateQueries({ queryKey: ["planos-aluno"] });
+          setVerificando(false);
+          return;
+        }
+      } catch {}
+      tentativas++;
+      if (tentativas < 6) {
+        setTimeout(poll, 3000);
+      } else {
+        toast.info("O pagamento ainda está sendo processado. Ele será confirmado em breve.");
+        setVerificando(false);
+      }
+    };
+    poll();
+  }, []);
   // Pendente com prazo vencido no relógio local já aparece como vencido em toda a página
   const pedidos = normalizarVencidos(dados.pedidos);
   const pendente = pedidos.find((p) => p.status === "pendente");
@@ -298,11 +334,17 @@ function Planos() {
 
   return (
     <div className="space-y-5">
+      {verificando && (
+        <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 p-4 text-sm text-primary">
+          <Loader2 className="size-4 animate-spin" />
+          Verificando seu pagamento…
+        </div>
+      )}
       <div>
         <h1 className="text-2xl font-bold text-foreground">Planos</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Escolha um plano por tempo ou um pacote de simulados, faça o pedido e siga as instruções
-          de pagamento. O acesso é liberado assim que a ABRACAM confirmar o pagamento.
+          de pagamento. O acesso é liberado assim que o pagamento for confirmado.
         </p>
       </div>
 
@@ -797,8 +839,14 @@ function FormContratar({
         },
       }),
     onSuccess: async (r, v) => {
+      if (r.checkoutUrl) {
+        toast.success(`Pedido ${r.codigo} criado. Redirecionando para o pagamento…`);
+        await queryClient.invalidateQueries({ queryKey: ["planos-aluno"] });
+        window.open(r.checkoutUrl, "_blank");
+        onIrParaPedidos();
+        return;
+      }
       if (v.manterEsperado && !r.reaproveitado) {
-        // A tela disse que o pedido seria mantido, mas o banco criou outro
         toast.warning(`Foi criado um novo pedido, ${r.codigo}.`, {
           description: `Se você já pagou o pedido anterior${
             v.pendenteEsperado ? ` (${v.pendenteEsperado})` : ""
