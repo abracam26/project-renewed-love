@@ -27,7 +27,7 @@ import {
   type StatusPedido,
 } from "@/lib/pagamentos";
 import { acessoAtivo, hojeSaoPaulo } from "@/lib/planos";
-import { criarOrdemPagarme, type DadosCriacao } from "@/lib/pagarme.functions";
+import type { DadosCriacao } from "@/lib/pagarme.server";
 
 /**
  * Planos à venda, pedidos e pagamentos.
@@ -390,6 +390,7 @@ export const criarPedido = createServerFn({ method: "POST" })
           successUrl: `https://simulador.abracam.com/planos?checkout=sucesso&pedido=${res.codigo}`,
           expiracaoSegundos: config.prazoPedidoDias > 0 ? config.prazoPedidoDias * 86400 : 259200,
         };
+        const { criarOrdemPagarme } = await import("@/lib/pagarme.server");
         const resultado = await criarOrdemPagarme(supabaseAdmin, dadosPagarme);
         checkoutUrl = resultado.checkoutUrl;
       }
