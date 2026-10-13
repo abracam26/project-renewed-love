@@ -26,13 +26,13 @@ export const verificarPagamentoPagarme = createServerFn({ method: "POST" })
     if (!pedido) throw new Error("Pedido não encontrado.");
     if (pedido.user_id !== user.id) throw new Error("Pedido não encontrado.");
     if (pedido.status === "pago") return { status: "pago" as const };
-    if (pedido.status !== "pendente") return { status: pedido.status as "cancelado" | "expirado" | "estornado" };
+    if (pedido.status !== "pendente")
+      return { status: pedido.status as "cancelado" | "expirado" | "estornado" };
     if (!pedido.external_order_id) return { status: "pendente" as const };
 
     try {
-      const { consultarOrdemPagarme, processarPagamentoConfirmado } = await import(
-        "@/lib/pagarme.server"
-      );
+      const { consultarOrdemPagarme, processarPagamentoConfirmado } =
+        await import("@/lib/pagarme.server");
       const ordem = await consultarOrdemPagarme(pedido.external_order_id);
       if (ordem.status === "paid") {
         await processarPagamentoConfirmado(supabaseAdmin, pedido.id, ordem);
@@ -64,20 +64,15 @@ export const verificarPedidosPendentes = createServerFn({ method: "POST" })
       .limit(50);
     if (error) throw new Error(error.message);
 
-    const { consultarOrdemPagarme, processarPagamentoConfirmado } = await import(
-      "@/lib/pagarme.server"
-    );
+    const { consultarOrdemPagarme, processarPagamentoConfirmado } =
+      await import("@/lib/pagarme.server");
     let confirmados = 0;
     let erros = 0;
     for (const p of pedidos ?? []) {
       try {
         const ordem = await consultarOrdemPagarme(p.external_order_id!);
         if (ordem.status === "paid") {
-          const { jaRegistrado } = await processarPagamentoConfirmado(
-            supabaseAdmin,
-            p.id,
-            ordem,
-          );
+          const { jaRegistrado } = await processarPagamentoConfirmado(supabaseAdmin, p.id, ordem);
           if (!jaRegistrado) confirmados++;
         }
       } catch {

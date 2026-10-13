@@ -47,8 +47,16 @@ async function apiPagarme<T = unknown>(
     try {
       const j = JSON.parse(texto);
       if (j?.message) msg = `Pagar.me: ${j.message}`;
-      else if (j?.errors?.[0]?.message) msg = `Pagar.me: ${j.errors[0].message}`;
-    } catch {}
+      // Erros de validação vêm como { errors: { "campo": ["mensagem"] } }
+      if (j?.errors && typeof j.errors === "object") {
+        const detalhes = Object.entries(j.errors as Record<string, unknown>)
+          .map(([campo, v]) => `${campo}: ${Array.isArray(v) ? v.join(", ") : String(v)}`)
+          .join("; ");
+        if (detalhes) msg += ` (${detalhes})`;
+      }
+    } catch {
+      // Resposta sem JSON: fica a mensagem genérica com o status
+    }
     console.error(`[Pagar.me] ${metodo} ${caminho} → ${res.status}:`, texto.slice(0, 500));
     throw new Error(msg);
   }
@@ -116,9 +124,7 @@ export async function criarOrdemPagarme(
   supabaseAdmin: SupabaseAdmin,
   dados: DadosCriacao,
 ): Promise<{ ordemId: string; checkoutUrl: string }> {
-  const metodosPagarme = dados.formasPagamento.map((f) =>
-    f === "cartao" ? "credit_card" : f,
-  );
+  const metodosPagarme = dados.formasPagamento.map((f) => (f === "cartao" ? "credit_card" : f));
 
   const corpo = {
     code: dados.codigo,
@@ -134,20 +140,24 @@ export async function criarOrdemPagarme(
       name: dados.compradorNome,
       email: dados.compradorEmail,
       type: dados.compradorTipo === "cnpj" ? "company" : "individual",
-      document: dados.compradorDocumento,
+      document: dados.compradorDocumento.replace(/\D/g, ""),
       document_type: dados.compradorTipo === "cnpj" ? "CNPJ" : "CPF",
     },
     payments: [
       {
         payment_method: "checkout",
         checkout: {
-          expires_in: dados.expiracaoSegundos,
+          // O checkout expira em minutos; o QR Code do Pix, em segundos
+          expires_in: Math.ceil(dados.expiracaoSegundos / 60),
           accepted_payment_methods: metodosPagarme,
           success_url: dados.successUrl,
           default_payment_method: metodosPagarme.includes("pix") ? "pix" : metodosPagarme[0],
           customer_editable: false,
           billing_address_editable: false,
           skip_checkout_success_page: false,
+          ...(metodosPagarme.includes("pix")
+            ? { pix: { expires_in: dados.expiracaoSegundos } }
+            : {}),
         },
       },
     ],

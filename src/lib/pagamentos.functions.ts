@@ -359,7 +359,24 @@ export const criarPedido = createServerFn({ method: "POST" })
     const res = r as { pedido_id: string; codigo: string; reaproveitado: boolean };
 
     let checkoutUrl: string | null = null;
-    if (config.gateway === "pagarme" && !res.reaproveitado) {
+    // Pedido reaproveitado: reusa o checkout já criado no Pagar.me, se ainda estiver aberto;
+    // se a criação no Pagar.me falhou antes (sem external_order_id), cria agora
+    let ordemExistente: string | null = null;
+    if (config.gateway === "pagarme" && res.reaproveitado) {
+      const { data: existente } = await supabaseAdmin
+        .from("pedidos")
+        .select("external_order_id")
+        .eq("id", res.pedido_id)
+        .single();
+      ordemExistente = existente?.external_order_id ?? null;
+      if (ordemExistente) {
+        const { consultarOrdemPagarme } = await import("@/lib/pagarme.server");
+        const ordem = await consultarOrdemPagarme(ordemExistente);
+        const aberto = ordem.checkouts?.find((c) => c.status === "open");
+        checkoutUrl = aberto?.payment_url ?? null;
+      }
+    }
+    if (config.gateway === "pagarme" && !ordemExistente) {
       const { data: perfil } = await supabaseAdmin
         .from("profiles")
         .select("full_name, email, cpf, cnpj")
@@ -638,7 +655,9 @@ export const salvarConfigPagamento = createServerFn({ method: "POST" })
         );
       }
       if (!data.pagarmeChavePublica.trim()) {
-        throw new Error("A chave pública do Pagar.me precisa ser informada antes de ativar o pagamento online.");
+        throw new Error(
+          "A chave pública do Pagar.me precisa ser informada antes de ativar o pagamento online.",
+        );
       }
     }
     const instrucoes: Record<string, string> = {};
