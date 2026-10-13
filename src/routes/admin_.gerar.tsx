@@ -2,6 +2,7 @@ import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, Wand2 } from "lucide-react";
 import { AdminGate } from "@/components/AdminGate";
+import { ChavesIA } from "@/components/ChavesIA";
 import { GeradorIA } from "@/components/GeradorIA";
 import { MaterialReferencia } from "@/components/MaterialReferencia";
 import { RegrasGeracao } from "@/components/RegrasGeracao";
@@ -82,6 +83,8 @@ function AdminGerar() {
             <RevisaoQuestoes key={`revisao-${exame}`} token={token} exame={exame} />
             <RegrasGeracao key={`regras-${exame}`} token={token} exame={exame} />
             <MaterialReferencia key={`material-${exame}`} token={token} exame={exame} />
+            {/* A chave vale para as duas provas */}
+            <ChavesIA token={token} />
           </div>
         )}
       </AdminGate>

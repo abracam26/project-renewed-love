@@ -89,6 +89,42 @@ export type Database = {
         }
         Relationships: []
       }
+      chaves_ia: {
+        Row: {
+          atualizado_em: string
+          atualizado_por: string | null
+          chave: string
+          posicao: string
+          provedor: string
+          ultimo_teste_em: string | null
+          ultimo_teste_msg: string | null
+          ultimo_teste_ok: boolean | null
+          ultimo_uso_em: string | null
+        }
+        Insert: {
+          atualizado_em?: string
+          atualizado_por?: string | null
+          chave: string
+          posicao: string
+          provedor?: string
+          ultimo_teste_em?: string | null
+          ultimo_teste_msg?: string | null
+          ultimo_teste_ok?: boolean | null
+          ultimo_uso_em?: string | null
+        }
+        Update: {
+          atualizado_em?: string
+          atualizado_por?: string | null
+          chave?: string
+          posicao?: string
+          provedor?: string
+          ultimo_teste_em?: string | null
+          ultimo_teste_msg?: string | null
+          ultimo_teste_ok?: boolean | null
+          ultimo_uso_em?: string | null
+        }
+        Relationships: []
+      }
       clientes: {
         Row: {
           cpf_cnpj: string
@@ -1398,6 +1434,7 @@ export type Database = {
           tema: number
         }[]
       }
+      trocar_chaves_ia: { Args: { p_por: string }; Returns: number }
       verificar_associado: {
         Args: { p_cnpj: string; p_email: string }
         Returns: {

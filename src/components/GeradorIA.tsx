@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { AlertTriangle, Loader2, Sparkles, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { gerarQuestoesIA, historicoGeracoes, listarMaterial } from "@/lib/ia-geracao.functions";
-import { testarConexaoGemini } from "@/lib/ia.functions";
+import { testarChavesIA } from "@/lib/chaves-ia.functions";
 import {
   DIFICULDADES,
   MATERIAL_DO_EXAME,
@@ -37,7 +37,7 @@ export function GeradorIA({ token, exame }: { token: string; exame: Exame }) {
   const gerar = useServerFn(gerarQuestoesIA);
   const material = useServerFn(listarMaterial);
   const historico = useServerFn(historicoGeracoes);
-  const testar = useServerFn(testarConexaoGemini);
+  const testar = useServerFn(testarChavesIA);
   const queryClient = useQueryClient();
 
   const qMaterial = useQuery({
@@ -70,6 +70,12 @@ export function GeradorIA({ token, exame }: { token: string; exame: Exame }) {
       }),
     onSuccess: async (r) => {
       await queryClient.invalidateQueries({ queryKey: ["admin"] });
+      if (r.chaveUsada === "reserva") {
+        toast.warning(
+          "A chave principal do Gemini falhou e a geração usou a chave reserva. Confira a principal em Chave da API de IA.",
+          { duration: 10000 },
+        );
+      }
       if (r.geradas === 0)
         toast.error("Nenhuma questão passou na validação. Veja os motivos abaixo.");
       else toast.success(`${r.geradas} questão(ões) enviada(s) para a fila de revisão.`);
@@ -80,11 +86,23 @@ export function GeradorIA({ token, exame }: { token: string; exame: Exame }) {
   async function testarChave() {
     setTestando(true);
     try {
-      const r = await testar();
-      if (r.ok) toast.success(r.mensagem);
-      else toast.error(r.mensagem);
-    } catch {
-      toast.error("Não foi possível testar a conexão com o Gemini.");
+      const r = await testar({ data: { token } });
+      if (r.mensagem) toast.error(r.mensagem);
+      for (const x of r.resultados) {
+        const nome =
+          x.origem === "projeto"
+            ? "Chave do projeto"
+            : x.origem === "principal"
+              ? "Chave principal"
+              : "Chave reserva";
+        if (x.ok) toast.success(`${nome}: ${x.mensagem}`);
+        else toast.error(`${nome}: ${x.mensagem}`);
+      }
+      await queryClient.invalidateQueries({ queryKey: ["admin", "chaves-ia"] });
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : "Não foi possível testar a conexão com o Gemini.",
+      );
     } finally {
       setTestando(false);
     }
@@ -113,7 +131,7 @@ export function GeradorIA({ token, exame }: { token: string; exame: Exame }) {
           className="inline-flex items-center gap-2 rounded-md border border-input bg-card px-3 py-1.5 text-xs font-medium text-card-foreground hover:bg-accent disabled:opacity-50"
         >
           <Sparkles className="size-3.5 text-primary" />
-          {testando ? "Testando..." : "Testar chave do Gemini"}
+          {testando ? "Testando..." : "Testar chaves do Gemini"}
         </button>
       </div>
 
