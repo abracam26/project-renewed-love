@@ -848,9 +848,9 @@ function FormContratar({
     onSuccess: async (r, v) => {
       if (r.checkoutUrl) {
         toast.success(`Pedido ${r.codigo} criado. Redirecionando para o pagamento…`);
-        await queryClient.invalidateQueries({ queryKey: ["planos-aluno"] });
-        window.open(r.checkoutUrl, "_blank");
-        onIrParaPedidos();
+        // Mesma aba: window.open depois de um await é bloqueado como pop-up.
+        // O Pagar.me devolve o aluno para /planos?checkout=sucesso ao terminar.
+        window.location.assign(r.checkoutUrl);
         return;
       }
       if (v.manterEsperado && !r.reaproveitado) {
