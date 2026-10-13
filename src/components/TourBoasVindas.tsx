@@ -47,7 +47,7 @@ const PASSOS: Passo[] = [
     alvo: "menu-/planos",
     titulo: "Planos",
     texto:
-      "Contrate ou renove seu acesso aos simulados completos e acompanhe seus pedidos e as instruções de pagamento.",
+      "Contrate um plano por tempo ou um pacote de simulados, e acompanhe seus pedidos e as instruções de pagamento.",
   },
   {
     alvo: "menu-/perfil",

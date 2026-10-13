@@ -14,6 +14,7 @@ import {
   FORMAS_MANUAIS,
   FORMAS_PAGAMENTO,
   GATEWAYS,
+  MAX_SIMULADOS_PACOTE,
   METODOS_PAGAMENTO,
   METODO_PAGAMENTO_LABEL,
   STATUS_PEDIDO,
@@ -161,10 +162,13 @@ type PedidoLinha = {
   user_id: string | null;
   desconto_associado: boolean;
   valor_sem_desconto: number | null;
+  plano_quantidade_simulados: number | null;
+  creditos_concedidos: number | null;
+  creditos_removidos: number | null;
 };
 
 const CAMPOS_PEDIDO =
-  "id, codigo, status, valor_total, plano_nome, plano_tipo_acesso, plano_duracao_quantidade, plano_duracao_unidade, metodo_pagamento, gateway, origem, teste, created_at, expira_em, liberado_em, plano_id, plano_anterior, plano_nome_anterior, plano_concedido, chave_venda, validade_anterior, validade_concedida, dias_concedidos, cancelado_em, motivo_cancelamento, estornado_em, motivo_estorno, acesso_removido, comprador_nome, comprador_email, comprador_documento, comprador_tipo, user_id, desconto_associado, valor_sem_desconto";
+  "id, codigo, status, valor_total, plano_nome, plano_tipo_acesso, plano_duracao_quantidade, plano_duracao_unidade, metodo_pagamento, gateway, origem, teste, created_at, expira_em, liberado_em, plano_id, plano_anterior, plano_nome_anterior, plano_concedido, chave_venda, validade_anterior, validade_concedida, dias_concedidos, cancelado_em, motivo_cancelamento, estornado_em, motivo_estorno, acesso_removido, comprador_nome, comprador_email, comprador_documento, comprador_tipo, user_id, desconto_associado, valor_sem_desconto, plano_quantidade_simulados, creditos_concedidos, creditos_removidos";
 
 function pedidoBasico(p: PedidoLinha) {
   return {
@@ -175,6 +179,8 @@ function pedidoBasico(p: PedidoLinha) {
     planoId: p.plano_id,
     planoNome: p.plano_nome,
     planoTipoAcesso: p.plano_tipo_acesso,
+    /** Pacote: quantos simulados o pedido dá (null nos planos por tempo) */
+    quantidadeSimulados: p.plano_quantidade_simulados,
     duracaoQuantidade: p.plano_duracao_quantidade,
     duracaoUnidade: p.plano_duracao_unidade as "dias" | "meses",
     metodo: (p.metodo_pagamento ?? null) as MetodoPagamento | null,
@@ -188,6 +194,9 @@ function pedidoBasico(p: PedidoLinha) {
     /** Pedido com preço de associado ABRACAM (valorSemDesconto = preço normal na época) */
     descontoAssociado: p.desconto_associado,
     valorSemDesconto: p.valor_sem_desconto,
+    /** Pacote pago: simulados somados ao saldo; estornado: quantos foram tirados */
+    creditosConcedidos: p.creditos_concedidos,
+    creditosRemovidos: p.creditos_removidos,
   };
 }
 
@@ -216,7 +225,7 @@ export const planosParaAluno = createServerFn({ method: "POST" })
       supabaseAdmin
         .from("profiles")
         .select(
-          "plano, plano_validade, plano_nome, cpf, cpf_hash, cnpj, instituicao, cadastro_completo_em",
+          "plano, plano_validade, plano_nome, cpf, cpf_hash, cnpj, instituicao, cadastro_completo_em, creditos_simulados",
         )
         .eq("id", user.id)
         .maybeSingle(),
@@ -224,7 +233,7 @@ export const planosParaAluno = createServerFn({ method: "POST" })
       supabaseAdmin
         .from("planos")
         .select(
-          "id, nome, descricao, beneficios, tipo_acesso, duracao_quantidade, duracao_unidade, preco_centavos, preco_associado_centavos, destaque, ordem",
+          "id, nome, descricao, beneficios, tipo_acesso, duracao_quantidade, duracao_unidade, quantidade_simulados, preco_centavos, preco_associado_centavos, destaque, ordem",
         )
         .eq("ativo", true)
         .order("ordem")
@@ -262,6 +271,7 @@ export const planosParaAluno = createServerFn({ method: "POST" })
           tipoAcesso: p.tipo_acesso,
           duracaoQuantidade: p.duracao_quantidade,
           duracaoUnidade: p.duracao_unidade as "dias" | "meses",
+          quantidadeSimulados: p.quantidade_simulados,
           /** O que este aluno paga (preço de associado, quando vale) */
           precoCentavos:
             comDesconto && p.preco_associado_centavos !== null
@@ -284,6 +294,8 @@ export const planosParaAluno = createServerFn({ method: "POST" })
         gratuidadeUsada,
         /** Instituição associada (desconto valendo), ou null */
         associado: associado ? { nome: associado.nome } : null,
+        /** Saldo de simulados dos pacotes */
+        creditos: perfil?.creditos_simulados ?? 0,
       },
       comprador: {
         cpf: mascararDocumento(perfil?.cpf),
@@ -394,6 +406,7 @@ export const listarPlanosAdmin = createServerFn({ method: "POST" })
         descricao: p.descricao,
         beneficios: p.beneficios,
         tipoAcesso: p.tipo_acesso as (typeof TIPOS_ACESSO)[number],
+        quantidadeSimulados: p.quantidade_simulados,
         duracaoQuantidade: p.duracao_quantidade,
         duracaoUnidade: p.duracao_unidade as "dias" | "meses",
         precoCentavos: p.preco_centavos,
@@ -423,6 +436,12 @@ const planoSchema = z
       .max(12, "No máximo 12 benefícios.")
       .default([]),
     tipoAcesso: z.enum(TIPOS_ACESSO),
+    /** Pacote: quantos simulados o aluno ganha (null nos planos por tempo) */
+    quantidadeSimulados: z
+      .number()
+      .int("Quantidade de simulados inválida.")
+      .nullable()
+      .default(null),
     duracaoQuantidade: z.number().int("Duração inválida.").min(1, "Duração inválida."),
     duracaoUnidade: z.enum(UNIDADES_DURACAO),
     precoCentavos: z.number().int().min(0).max(100000000, "Preço muito alto."),
@@ -442,8 +461,18 @@ const planoSchema = z
     ativo: z.boolean().default(false),
   })
   .superRefine((v, ctx) => {
+    if (v.tipoAcesso === "pacote") {
+      const q = v.quantidadeSimulados;
+      if (q === null || q < 1 || q > MAX_SIMULADOS_PACOTE) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["quantidadeSimulados"],
+          message: `Informe quantos simulados o pacote tem (de 1 a ${MAX_SIMULADOS_PACOTE}).`,
+        });
+      }
+    }
     const max = v.duracaoUnidade === "meses" ? 120 : 3660;
-    if (v.duracaoQuantidade > max) {
+    if (v.tipoAcesso !== "pacote" && v.duracaoQuantidade > max) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["duracaoQuantidade"],
@@ -470,13 +499,16 @@ export const salvarPlano = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => planoSchema.parse(d))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await exigirAdmin(data.token);
+    const pacote = data.tipoAcesso === "pacote";
     const row = {
       nome: data.nome,
       descricao: data.descricao,
       beneficios: data.beneficios,
       tipo_acesso: data.tipoAcesso,
-      duracao_quantidade: data.duracaoQuantidade,
-      duracao_unidade: data.duracaoUnidade,
+      quantidade_simulados: pacote ? data.quantidadeSimulados : null,
+      // No pacote a duração não se aplica (o saldo não vence): grava um valor fixo
+      duracao_quantidade: pacote ? 1 : data.duracaoQuantidade,
+      duracao_unidade: pacote ? "meses" : data.duracaoUnidade,
       preco_centavos: data.precoCentavos,
       preco_associado_centavos: data.precoAssociadoCentavos,
       formas_pagamento: [...new Set(data.formasPagamento)],
@@ -605,7 +637,7 @@ async function montarPedidosAdmin(supabaseAdmin: SupabaseAdmin, linhas: PedidoLi
     usuarios.length
       ? supabaseAdmin
           .from("profiles")
-          .select("id, plano, plano_validade, plano_nome")
+          .select("id, plano, plano_validade, plano_nome, creditos_simulados")
           .in("id", usuarios)
       : null,
     // Pedido do mesmo aluno aguardando pagamento (aviso ao confirmar outro pedido)
@@ -676,6 +708,7 @@ async function montarPedidosAdmin(supabaseAdmin: SupabaseAdmin, linhas: PedidoLi
             plano: perfil.plano,
             planoValidade: perfil.plano_validade,
             planoNome: perfil.plano_nome,
+            creditos: perfil.creditos_simulados,
           }
         : null,
       /** Código de outro pedido do mesmo aluno aguardando pagamento (se houver) */
@@ -772,6 +805,9 @@ export type ResultadoPagamento = {
   validade?: string;
   plano?: string;
   dias?: number;
+  /** Pacote: simulados somados e saldo depois */
+  creditos?: number;
+  saldo?: number;
   alerta?: string | null;
   pedidos_cancelados?: string[];
   codigo?: string;
@@ -867,9 +903,13 @@ export const estornarPedido = createServerFn({ method: "POST" })
     erroRpc(error);
     return r as unknown as {
       acesso_removido: boolean;
-      /** restaurado = voltou ao acesso de antes do pedido; dias = tirou só os dias não usados */
-      modo: "restaurado" | "dias" | "nada";
+      /**
+       * restaurado = voltou ao acesso de antes do pedido; dias = tirou só os dias não usados;
+       * creditos = pacote: tirou do saldo os simulados não usados
+       */
+      modo: "restaurado" | "dias" | "creditos" | "nada";
       dias_nao_usados: number;
+      creditos_removidos: number;
       plano: string | null;
       validade_anterior: string | null;
       validade: string | null;
@@ -920,7 +960,11 @@ export const pedidosDoUsuario = createServerFn({ method: "POST" })
       p_user: data.userId,
     });
     erroRpc(eExp);
-    const [{ data: pedidos, error }, { data: historico, error: eHist }] = await Promise.all([
+    const [
+      { data: pedidos, error },
+      { data: historico, error: eHist },
+      { data: movimentos, error: eMov },
+    ] = await Promise.all([
       supabaseAdmin
         .from("pedidos")
         .select(CAMPOS_PEDIDO)
@@ -935,9 +979,16 @@ export const pedidosDoUsuario = createServerFn({ method: "POST" })
         .eq("user_id", data.userId)
         .order("created_at", { ascending: false })
         .limit(20),
+      supabaseAdmin
+        .from("movimentos_creditos")
+        .select("id, quantidade, saldo_depois, origem, pedido_id, observacao, created_at")
+        .eq("user_id", data.userId)
+        .order("created_at", { ascending: false })
+        .limit(30),
     ]);
     if (error) throw new Error(error.message);
     if (eHist) throw new Error(eHist.message);
+    if (eMov) throw new Error(eMov.message);
     const lista = (pedidos ?? []) as unknown as PedidoLinha[];
     return {
       pedidos: await montarPedidosAdmin(supabaseAdmin, lista),
@@ -952,6 +1003,16 @@ export const pedidosDoUsuario = createServerFn({ method: "POST" })
         validadeDepois: h.validade_depois,
         observacao: h.observacao,
         criadoEm: h.created_at,
+      })),
+      /** Extrato do saldo de simulados (pacotes, uso, estornos e ajustes) */
+      movimentos: (movimentos ?? []).map((m) => ({
+        id: m.id,
+        quantidade: m.quantidade,
+        saldoDepois: m.saldo_depois,
+        origem: m.origem as "pedido" | "estorno" | "simulado" | "admin",
+        pedidoCodigo: lista.find((p) => p.id === m.pedido_id)?.codigo ?? null,
+        observacao: m.observacao,
+        criadoEm: m.created_at,
       })),
     };
   });

@@ -5,6 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   BadgeCheck,
   CalendarPlus,
+  Layers,
   ChevronLeft,
   ChevronRight,
   Download,
@@ -32,13 +33,14 @@ import { cnpjValido, formatarCnpj } from "@/lib/cnpj";
 import { cpfValido, formatarCpf } from "@/lib/cpf";
 import {
   centavosParaTexto,
-  descreverDuracao,
+  descreverConteudo,
   formatarReais,
   mascararDocumento,
   METODO_PAGAMENTO_LABEL,
   METODOS_PAGAMENTO,
   reaisParaCentavos,
   STATUS_PEDIDO_LABEL,
+  textoSimulados,
   type MetodoPagamento,
   type StatusPedido,
 } from "@/lib/pagamentos";
@@ -54,6 +56,7 @@ import {
   type Plano,
 } from "@/lib/planos";
 import {
+  ajustarCreditos,
   atualizarCadastroUsuario,
   atualizarPlano,
   detalheUsuario,
@@ -78,6 +81,7 @@ const FILTRO_LABEL: Record<FiltroUsuarios, string> = {
   ativos: "Com plano ativo",
   vencendo: "Vencem em até 7 dias",
   vencidos: "Plano vencido",
+  com_saldo: "Com saldo de pacote",
   sem_plano: "Sem plano / bloqueados",
   incompletos: "Cadastro incompleto",
   admins: "Administradores",
@@ -262,6 +266,7 @@ export function GestorUsuarios({ token }: { token: string }) {
                         validade={u.plano_validade}
                         ativo={u.acesso_ativo}
                         isAdmin={u.is_admin}
+                        creditos={u.creditos}
                       />
                     </td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">
@@ -319,24 +324,38 @@ function SeloAcesso({
   validade,
   ativo,
   isAdmin,
+  creditos = 0,
 }: {
   plano: string;
   validade: string | null;
   ativo: boolean;
   isAdmin: boolean;
+  /** Saldo de simulados dos pacotes */
+  creditos?: number;
 }) {
+  // Sem plano por tempo, quem tem saldo de pacote faz os simulados pelo saldo
+  const pacote = !ativo && !isAdmin && plano !== "inativo" && creditos > 0;
   const [texto, classe] = ativo
     ? [`Até ${formatarDataBR(validade)}`, "bg-success text-success-foreground"]
     : isAdmin
       ? ["Admin (liberado)", "bg-info text-info-foreground"]
       : plano === "inativo"
         ? ["Bloqueado", "bg-destructive text-destructive-foreground"]
-        : (plano === "mensal" || plano === "anual") && validade
-          ? [`Venceu ${formatarDataBR(validade)}`, "bg-destructive text-destructive-foreground"]
-          : ["Só teste grátis", "border border-border bg-secondary text-secondary-foreground"];
+        : pacote
+          ? [`${textoSimulados(creditos)} no saldo`, "bg-success text-success-foreground"]
+          : (plano === "mensal" || plano === "anual") && validade
+            ? [`Venceu ${formatarDataBR(validade)}`, "bg-destructive text-destructive-foreground"]
+            : ["Só teste grátis", "border border-border bg-secondary text-secondary-foreground"];
   return (
-    <span className={cn("inline-block rounded px-2 py-0.5 text-[11px] font-semibold", classe)}>
-      {texto}
+    <span className="inline-flex flex-wrap items-center gap-1">
+      <span className={cn("inline-block rounded px-2 py-0.5 text-[11px] font-semibold", classe)}>
+        {texto}
+      </span>
+      {!pacote && creditos > 0 && (
+        <span className="inline-block rounded border border-border bg-secondary px-2 py-0.5 text-[11px] font-semibold text-secondary-foreground">
+          + {textoSimulados(creditos)} no saldo
+        </span>
+      )}
     </span>
   );
 }
@@ -405,6 +424,7 @@ function DetalheUsuario({ token, userId }: { token: string; userId: string }) {
       <VinculoAssociado key={u.associado?.id ?? "nenhum"} token={token} usuario={u} />
       {/* Recomeça o formulário sempre que o acesso gravado mudar (pagamento, venda, ajuste) */}
       <PlanoAcesso key={`${u.plano}|${u.planoValidade ?? ""}`} token={token} usuario={u} />
+      <SaldoSimulados key={`saldo-${u.creditos}`} token={token} usuario={u} />
       <PedidosPagamentos token={token} usuario={u} />
 
       <section>
@@ -735,6 +755,226 @@ function VinculoAssociado({ token, usuario: u }: { token: string; usuario: Usuar
   );
 }
 
+// ---------------------------------------------------------------------
+// Saldo de simulados (pacotes): ajuste manual e extrato
+// ---------------------------------------------------------------------
+const ORIGEM_MOVIMENTO: Record<string, string> = {
+  pedido: "Compra de pacote",
+  estorno: "Estorno de pacote",
+  simulado: "Simulado iniciado",
+  admin: "Ajuste do admin",
+};
+
+function SaldoSimulados({ token, usuario: u }: { token: string; usuario: Usuario }) {
+  const carregarPedidos = useServerFn(pedidosDoUsuario);
+  const ajustar = useServerFn(ajustarCreditos);
+  const queryClient = useQueryClient();
+  const [ajustando, setAjustando] = useState(false);
+  const [quantidade, setQuantidade] = useState("");
+  const [motivo, setMotivo] = useState("");
+  const [verTudo, setVerTudo] = useState(false);
+
+  // Mesma consulta da seção de pedidos (o extrato vem junto)
+  const extrato = useQuery({
+    queryKey: ["admin", "usuario", u.id, "pedidos"],
+    queryFn: () => carregarPedidos({ data: { token, userId: u.id } }),
+  });
+  const movimentos = extrato.data?.movimentos ?? [];
+
+  const n = Number(quantidade);
+  const qtdOk = quantidade.trim() !== "" && Number.isInteger(n) && n !== 0 && Math.abs(n) <= 1000;
+  const novoSaldo = qtdOk ? u.creditos + n : null;
+  const erroQtd = !quantidade.trim()
+    ? null
+    : !qtdOk
+      ? "Use um número inteiro diferente de zero (ex.: 2 para somar, -1 para tirar)."
+      : novoSaldo !== null && novoSaldo < 0
+        ? `O saldo não pode ficar negativo (o aluno tem ${textoSimulados(u.creditos)}).`
+        : null;
+
+  const mut = useMutation({
+    mutationFn: () =>
+      ajustar({
+        data: {
+          token,
+          userId: u.id,
+          quantidade: n,
+          observacao: motivo.trim(),
+          saldoEsperado: u.creditos,
+        },
+      }),
+    onSuccess: async (r) => {
+      toast.success(`Saldo ajustado: agora são ${textoSimulados(r.saldo)}.`);
+      setAjustando(false);
+      setQuantidade("");
+      setMotivo("");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["admin", "usuario", u.id] }),
+        queryClient.invalidateQueries({ queryKey: ["admin", "usuarios"] }),
+      ]);
+    },
+    onError: async (e) => {
+      toast.error(mensagemErro(e));
+      await queryClient.invalidateQueries({ queryKey: ["admin", "usuario", u.id] });
+    },
+  });
+
+  const visiveis = verTudo ? movimentos : movimentos.slice(0, 5);
+
+  return (
+    <section className="rounded-lg border border-border p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="flex items-center gap-1.5 text-sm font-semibold text-card-foreground">
+          <Layers className="size-4 text-primary" /> Saldo de simulados (pacotes)
+        </h3>
+        {!ajustando && (
+          <button
+            type="button"
+            onClick={() => setAjustando(true)}
+            className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+          >
+            <Pencil className="size-3.5" /> Ajustar saldo
+          </button>
+        )}
+      </div>
+      <p className="mt-2 text-sm text-card-foreground">
+        <strong>{textoSimulados(u.creditos)}</strong> no saldo.{" "}
+        <span className="text-xs text-muted-foreground">
+          {u.acessoAtivo
+            ? "Enquanto o plano por tempo estiver ativo, os simulados não gastam o saldo."
+            : "Cada simulado completo iniciado gasta 1, mesmo que não seja finalizado. O saldo não vence."}
+        </span>
+      </p>
+
+      {ajustando && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (qtdOk && !erroQtd && motivo.trim().length >= 3) mut.mutate();
+          }}
+          className="mt-3 space-y-2"
+        >
+          <div className="grid gap-3 sm:grid-cols-[10rem_1fr]">
+            <label className="block text-xs text-muted-foreground">
+              Somar ou tirar
+              <input
+                type="number"
+                step={1}
+                value={quantidade}
+                onChange={(e) => setQuantidade(e.target.value)}
+                placeholder="Ex.: 2 ou -1"
+                className={`mt-1 ${inputClass}`}
+              />
+            </label>
+            <label className="block text-xs text-muted-foreground">
+              Motivo (fica no extrato)
+              <input
+                value={motivo}
+                onChange={(e) => setMotivo(e.target.value)}
+                maxLength={500}
+                placeholder="Ex.: simulado interrompido por problema técnico"
+                className={`mt-1 ${inputClass}`}
+              />
+            </label>
+          </div>
+          {erroQtd ? (
+            <p className="text-xs text-destructive">{erroQtd}</p>
+          ) : (
+            novoSaldo !== null && (
+              <p className="text-xs text-card-foreground">
+                Saldo: {textoSimulados(u.creditos)} →{" "}
+                <strong className="text-success">{textoSimulados(novoSaldo)}</strong>
+              </p>
+            )
+          )}
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setAjustando(false);
+                setQuantidade("");
+                setMotivo("");
+              }}
+              className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-card-foreground hover:bg-accent"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={mut.isPending || !qtdOk || Boolean(erroQtd) || motivo.trim().length < 3}
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-gold disabled:opacity-50"
+            >
+              {mut.isPending ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Save className="size-3.5" />
+              )}
+              Salvar ajuste
+            </button>
+          </div>
+        </form>
+      )}
+
+      <h4 className="mt-4 text-xs font-semibold text-card-foreground">Extrato</h4>
+      {extrato.isPending ? (
+        <p className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 className="size-3.5 animate-spin text-primary" /> Carregando...
+        </p>
+      ) : extrato.isError ? (
+        <p className="mt-1.5 text-xs text-destructive">{mensagemErro(extrato.error)}</p>
+      ) : movimentos.length === 0 ? (
+        <p className="mt-1.5 text-xs text-muted-foreground">Nenhuma movimentação no saldo.</p>
+      ) : (
+        <>
+          <ul className="mt-1.5 space-y-1.5 text-xs">
+            {visiveis.map((m) => (
+              <li
+                key={m.id}
+                className="flex flex-wrap items-start justify-between gap-2 rounded-md bg-secondary/40 px-3 py-2"
+              >
+                <span className="min-w-0">
+                  <span className="font-medium text-card-foreground">
+                    {ORIGEM_MOVIMENTO[m.origem] ?? m.origem}
+                  </span>
+                  {m.pedidoCodigo && (
+                    <span className="font-mono text-muted-foreground"> · {m.pedidoCodigo}</span>
+                  )}
+                  <span className="text-muted-foreground"> · {dataHora(m.criadoEm)}</span>
+                  {m.observacao && (
+                    <span className="block text-muted-foreground">{m.observacao}</span>
+                  )}
+                </span>
+                <span className="shrink-0 text-right">
+                  <span
+                    className={cn(
+                      "font-semibold",
+                      m.quantidade > 0 ? "text-success" : "text-destructive",
+                    )}
+                  >
+                    {m.quantidade > 0 ? `+${m.quantidade}` : m.quantidade}
+                  </span>
+                  <span className="block text-[11px] text-muted-foreground">
+                    saldo {m.saldoDepois}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+          {movimentos.length > 5 && (
+            <button
+              type="button"
+              onClick={() => setVerTudo((v) => !v)}
+              className="mt-1.5 text-xs font-medium text-primary hover:underline"
+            >
+              {verTudo ? "Mostrar menos" : `Ver as ${movimentos.length} movimentações`}
+            </button>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
 function PlanoAcesso({ token, usuario: u }: { token: string; usuario: Usuario }) {
   const salvar = useServerFn(atualizarPlano);
   const queryClient = useQueryClient();
@@ -829,6 +1069,7 @@ function PlanoAcesso({ token, usuario: u }: { token: string; usuario: Usuario })
             validade={u.planoValidade}
             ativo={u.acessoAtivo}
             isAdmin={u.isAdmin}
+            creditos={u.creditos}
           />
         </div>
       </div>
@@ -1152,7 +1393,9 @@ function PedidosPagamentos({ token, usuario: u }: { token: string; usuario: Usua
                       <span className="text-muted-foreground">· {dataCurta(p.criadoEm)}</span>
                       {p.status === "pago" && (
                         <span className="font-medium text-success">
-                          · até {formatarDataBR(p.validadeConcedida)}
+                          {p.planoTipoAcesso === "pacote"
+                            ? `· +${textoSimulados(p.creditosConcedidos ?? 0)}`
+                            : `· até ${formatarDataBR(p.validadeConcedida)}`}
                         </span>
                       )}
                     </span>
@@ -1201,7 +1444,13 @@ function PedidosPagamentos({ token, usuario: u }: { token: string; usuario: Usua
                     </p>
                   ) : p.status === "estornado" ? (
                     <p className="mt-0.5 text-muted-foreground">
-                      {p.acessoRemovido ? "Dias de acesso retirados" : "Acesso mantido"}
+                      {p.planoTipoAcesso === "pacote"
+                        ? p.acessoRemovido
+                          ? `${textoSimulados(p.creditosRemovidos ?? 0)} retirado${(p.creditosRemovidos ?? 0) === 1 ? "" : "s"} do saldo`
+                          : "Saldo mantido"
+                        : p.acessoRemovido
+                          ? "Dias de acesso retirados"
+                          : "Acesso mantido"}
                       {p.motivoEstorno ? ` · ${p.motivoEstorno}` : ""}
                     </p>
                   ) : p.motivoCancelamento ? (
@@ -1325,9 +1574,11 @@ function RegistrarVenda({
     /^\d{4}-\d{2}-\d{2}$/.test(dataPagamento) &&
     dataPagamento <= hoje &&
     dataPagamento >= "2024-01-01";
-  const validadeNova = plano
-    ? novaValidade(u.plano, u.planoValidade, plano.duracaoQuantidade, plano.duracaoUnidade, hoje)
-    : null;
+  const vendePacote = plano?.tipoAcesso === "pacote";
+  const validadeNova =
+    plano && !vendePacote
+      ? novaValidade(u.plano, u.planoValidade, plano.duracaoQuantidade, plano.duracaoUnidade, hoje)
+      : null;
   const acessoAtual = u.acessoAtivo
     ? `${nomeDoPlano(u.plano, u.planoNome)} até ${formatarDataBR(u.planoValidade)}`
     : (u.plano === "mensal" || u.plano === "anual") && u.planoValidade
@@ -1366,7 +1617,11 @@ function RegistrarVenda({
       });
     },
     onSuccess: async (r, pendenteEsperado) => {
-      const ate = r.validade ? ` Acesso até ${formatarDataBR(r.validade)}.` : "";
+      const ate = r.validade
+        ? ` Acesso até ${formatarDataBR(r.validade)}.`
+        : r.creditos
+          ? ` ${textoSimulados(r.creditos)} somado${r.creditos === 1 ? "" : "s"} ao saldo (agora ${textoSimulados(r.saldo ?? r.creditos)}).`
+          : "";
       if (r.situacao === "ja_registrado") {
         // A tentativa anterior já tinha gravado a venda (a resposta se perdeu)
         toast.warning(
@@ -1500,7 +1755,7 @@ function RegistrarVenda({
           </option>
           {planos.map((p) => (
             <option key={p.id} value={p.id}>
-              {`${p.nome} — ${descreverDuracao(p.duracaoQuantidade, p.duracaoUnidade)} · ${formatarReais(p.precoCentavos)}${p.ativo ? "" : " (desativado)"}`}
+              {`${p.nome} — ${descreverConteudo(p)} · ${formatarReais(p.precoCentavos)}${p.ativo ? "" : " (desativado)"}`}
             </option>
           ))}
         </select>
@@ -1645,7 +1900,20 @@ function RegistrarVenda({
       </label>
 
       <div className="rounded-md bg-secondary/40 px-3 py-2 text-xs text-card-foreground">
-        {plano && validadeNova ? (
+        {plano && vendePacote ? (
+          <>
+            <p>
+              Saldo de simulados: <strong>{textoSimulados(u.creditos)}</strong> → passa a{" "}
+              <strong className="text-success">
+                {textoSimulados(u.creditos + (plano.quantidadeSimulados ?? 0))}
+              </strong>
+            </p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              O pacote soma ao saldo e não muda o plano por tempo. O saldo não vence.
+              {u.isAdmin && " Esta conta é de administrador: a venda fica marcada como teste."}
+            </p>
+          </>
+        ) : plano && validadeNova ? (
           <>
             <p>
               Acesso atual: <strong>{acessoAtual}</strong> → vai até{" "}

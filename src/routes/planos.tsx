@@ -7,6 +7,7 @@ import {
   CalendarCheck,
   Check,
   Clock,
+  Layers,
   Loader2,
   Mail,
   ReceiptText,
@@ -28,9 +29,11 @@ import { CONTROLADOR } from "@/lib/juridico";
 import {
   METODO_PAGAMENTO_LABEL,
   STATUS_PEDIDO_LABEL,
+  descreverConteudo,
   descreverDuracao,
   formatarReais,
-  periodoDoPlano,
+  legendaDoPreco,
+  textoSimulados,
   type FormaManual,
   type StatusPedido,
 } from "@/lib/pagamentos";
@@ -298,15 +301,15 @@ function Planos() {
       <div>
         <h1 className="text-2xl font-bold text-foreground">Planos</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Escolha um plano, faça o pedido e siga as instruções de pagamento. O acesso é liberado
-          assim que a ABRACAM confirmar o pagamento.
+          Escolha um plano por tempo ou um pacote de simulados, faça o pedido e siga as instruções
+          de pagamento. O acesso é liberado assim que a ABRACAM confirmar o pagamento.
         </p>
       </div>
 
       <div
         className={cn(
           "panel p-4 text-sm text-card-foreground",
-          atual.acessoAtivo
+          atual.acessoAtivo || (atual.creditos > 0 && !bloqueado)
             ? "border-success/40"
             : bloqueado
               ? "border-destructive/40"
@@ -325,6 +328,11 @@ function Planos() {
           </>
         ) : atual.bloqueado ? (
           <>Sua conta está bloqueada. Fale com a ABRACAM ({CONTROLADOR.emailContato}).</>
+        ) : atual.creditos > 0 ? (
+          <>
+            Você tem <strong>{textoSimulados(atual.creditos)}</strong> no seu saldo. Cada simulado
+            iniciado usa 1, e o saldo não vence.
+          </>
         ) : (
           <>
             Você não tem plano ativo.{" "}
@@ -332,6 +340,12 @@ function Planos() {
               ? "Seu teste grátis já foi utilizado."
               : "Seu teste grátis ainda está disponível no painel."}
           </>
+        )}
+        {atual.acessoAtivo && atual.creditos > 0 && (
+          <p className="mt-1 text-xs text-muted-foreground">
+            Você também tem {textoSimulados(atual.creditos)} no saldo dos pacotes. Enquanto o plano
+            estiver ativo, os simulados não gastam o saldo.
+          </p>
         )}
       </div>
 
@@ -400,7 +414,9 @@ function Planos() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <CartaoTesteGratis
-          seuPlano={!atual.acessoAtivo && !atual.isAdmin && !atual.bloqueado}
+          seuPlano={
+            !atual.acessoAtivo && !atual.isAdmin && !atual.bloqueado && atual.creditos === 0
+          }
           usado={atual.gratuidadeUsada}
         />
         {planos.length === 0 ? (
@@ -411,7 +427,7 @@ function Planos() {
               key={p.id}
               plano={p}
               seuPlano={ehSeuPlano(p)}
-              renovar={atual.acessoAtivo}
+              renovar={p.tipoAcesso === "pacote" ? atual.creditos > 0 : atual.acessoAtivo}
               motivoBloqueio={motivoBloqueio}
               onContratar={() => abrirContratacao(p)}
             />
@@ -548,9 +564,12 @@ function CartaoPlano({
       >
         {formatarReais(p.precoCentavos)}
       </p>
-      <p className="text-xs text-muted-foreground">
-        {periodoDoPlano(p.duracaoQuantidade, p.duracaoUnidade)}
-      </p>
+      <p className="text-xs text-muted-foreground">{legendaDoPreco(p)}</p>
+      {p.tipoAcesso === "pacote" && p.quantidadeSimulados && p.quantidadeSimulados > 1 && (
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          {formatarReais(Math.round(p.precoCentavos / p.quantidadeSimulados))} por simulado
+        </p>
+      )}
       {p.descontoAssociado ? (
         <p className="mt-2 inline-flex w-fit items-center gap-1 rounded-full bg-success px-2.5 py-0.5 text-[11px] font-semibold text-success-foreground">
           <BadgeCheck className="size-3" /> Preço de associado ABRACAM
@@ -579,7 +598,13 @@ function CartaoPlano({
           )}
         >
           <ShoppingCart className="size-4" />
-          {renovar ? "Renovar" : "Contratar"}
+          {p.tipoAcesso === "pacote"
+            ? renovar
+              ? "Comprar mais"
+              : "Comprar"
+            : renovar
+              ? "Renovar"
+              : "Contratar"}
         </button>
         {motivoBloqueio && (
           <p className="mt-2 text-center text-[11px] text-muted-foreground">{motivoBloqueio}</p>
@@ -717,6 +742,7 @@ function FormContratar({
           ? `No momento não há forma de pagamento disponível. Fale com a ABRACAM (${CONTROLADOR.emailContato}).`
           : null;
 
+  const pacote = plano.tipoAcesso === "pacote";
   const validade = novaValidade(
     atual.plano,
     atual.planoValidade,
@@ -735,6 +761,7 @@ function FormContratar({
     pendente.planoTipoAcesso === plano.tipoAcesso &&
     pendente.duracaoQuantidade === plano.duracaoQuantidade &&
     pendente.duracaoUnidade === plano.duracaoUnidade &&
+    pendente.quantidadeSimulados === plano.quantidadeSimulados &&
     pendente.compradorTipo === compradorValido &&
     pendente.documentoConfere
       ? pendente
@@ -806,7 +833,7 @@ function FormContratar({
     <>
       <DialogHeader>
         <DialogTitle>
-          {atual.acessoAtivo ? "Renovar" : "Contratar"}: {plano.nome}
+          {pacote ? "Comprar" : atual.acessoAtivo ? "Renovar" : "Contratar"}: {plano.nome}
         </DialogTitle>
         <DialogDescription>
           Confira os dados e faça o pedido. Você paga por fora (Pix, transferência etc.) e o acesso
@@ -828,25 +855,42 @@ function FormContratar({
                 </span>
               </>
             )}{" "}
-            · acesso por {descreverDuracao(plano.duracaoQuantidade, plano.duracaoUnidade)}
+            · {pacote ? descreverConteudo(plano) : `acesso por ${descreverConteudo(plano)}`}
           </p>
-          <p className="mt-2 flex items-start gap-1.5 text-xs">
-            <CalendarCheck className="mt-0.5 size-3.5 shrink-0 text-success" />
-            <span>
-              {atual.acessoAtivo ? (
-                <>
-                  Com o pagamento confirmado hoje, soma ao seu acesso atual: vai até{" "}
-                  <strong>{formatarDataBR(validade)}</strong>.
-                </>
-              ) : (
-                <>
-                  Com o pagamento confirmado hoje, o acesso vale até{" "}
-                  <strong>{formatarDataBR(validade)}</strong>. A contagem começa no dia em que a
-                  ABRACAM confirmar o pagamento.
-                </>
-              )}
-            </span>
-          </p>
+          {pacote ? (
+            <p className="mt-2 flex items-start gap-1.5 text-xs">
+              <Layers className="mt-0.5 size-3.5 shrink-0 text-success" />
+              <span>
+                Com o pagamento confirmado, os {textoSimulados(plano.quantidadeSimulados ?? 0)}{" "}
+                somam ao seu saldo
+                {atual.creditos > 0
+                  ? ` (hoje você tem ${textoSimulados(atual.creditos)}; vai ficar com ${textoSimulados(atual.creditos + (plano.quantidadeSimulados ?? 0))})`
+                  : ""}
+                . Cada simulado iniciado (ABT1, ABT2 ou ABT – Correspondentes) usa 1, mesmo que não
+                seja finalizado. O saldo não vence.
+                {atual.acessoAtivo &&
+                  " Enquanto seu plano por tempo estiver ativo, os simulados não gastam o saldo."}
+              </span>
+            </p>
+          ) : (
+            <p className="mt-2 flex items-start gap-1.5 text-xs">
+              <CalendarCheck className="mt-0.5 size-3.5 shrink-0 text-success" />
+              <span>
+                {atual.acessoAtivo ? (
+                  <>
+                    Com o pagamento confirmado hoje, soma ao seu acesso atual: vai até{" "}
+                    <strong>{formatarDataBR(validade)}</strong>.
+                  </>
+                ) : (
+                  <>
+                    Com o pagamento confirmado hoje, o acesso vale até{" "}
+                    <strong>{formatarDataBR(validade)}</strong>. A contagem começa no dia em que a
+                    ABRACAM confirmar o pagamento.
+                  </>
+                )}
+              </span>
+            </p>
+          )}
         </div>
 
         <fieldset className="space-y-2">
@@ -1029,7 +1073,11 @@ function CartaoPedido({
         <div className="min-w-0">
           <p className="font-mono text-sm font-semibold text-card-foreground">{p.codigo}</p>
           <p className="text-sm text-card-foreground">
-            {p.planoNome} · {formatarReais(p.valorTotal)}
+            {p.planoNome}
+            {p.planoTipoAcesso === "pacote" && p.quantidadeSimulados
+              ? ` (${textoSimulados(p.quantidadeSimulados)})`
+              : ""}{" "}
+            · {formatarReais(p.valorTotal)}
             {p.descontoAssociado && (
               <span className="ml-1.5 text-[11px] font-medium text-success">
                 (preço de associado)
@@ -1128,7 +1176,12 @@ function CartaoPedido({
       {p.status === "pago" && (
         <>
           <p className="rounded-md border border-success/30 bg-success/10 p-3 text-xs text-card-foreground">
-            {p.validadeConcedida ? (
+            {p.planoTipoAcesso === "pacote" && p.creditosConcedidos ? (
+              <>
+                Pagamento confirmado. <strong>{textoSimulados(p.creditosConcedidos)}</strong>{" "}
+                {p.creditosConcedidos === 1 ? "foi somado" : "foram somados"} ao seu saldo.
+              </>
+            ) : p.validadeConcedida ? (
               <>
                 Pagamento confirmado. Acesso liberado até{" "}
                 <strong>{formatarDataBR(p.validadeConcedida)}</strong>.

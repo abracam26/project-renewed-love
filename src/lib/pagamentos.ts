@@ -4,10 +4,20 @@
  * como na API do Pagar.me.
  */
 
-/** Categoria de acesso que o plano libera (gravada em profiles.plano). */
-export const TIPOS_ACESSO = ["mensal", "anual"] as const;
+/**
+ * Categoria de acesso que o plano libera. Mensal e anual são por tempo
+ * (gravados em profiles.plano); o pacote soma simulados ao saldo do aluno.
+ */
+export const TIPOS_ACESSO = ["mensal", "anual", "pacote"] as const;
 export type TipoAcesso = (typeof TIPOS_ACESSO)[number];
-export const TIPO_ACESSO_LABEL: Record<TipoAcesso, string> = { mensal: "Mensal", anual: "Anual" };
+export const TIPO_ACESSO_LABEL: Record<TipoAcesso, string> = {
+  mensal: "Mensal",
+  anual: "Anual",
+  pacote: "Pacote de simulados",
+};
+
+/** Maior pacote que dá para cadastrar (mesmo limite do banco). */
+export const MAX_SIMULADOS_PACOTE = 500;
 
 export const UNIDADES_DURACAO = ["meses", "dias"] as const;
 export type UnidadeDuracao = (typeof UNIDADES_DURACAO)[number];
@@ -107,6 +117,32 @@ export function reaisParaCentavos(texto: string): number | null {
 export function descreverDuracao(quantidade: number, unidade: string): string {
   if (unidade === "dias") return quantidade === 1 ? "1 dia" : `${quantidade} dias`;
   return quantidade === 1 ? "1 mês" : `${quantidade} meses`;
+}
+
+/** "1 simulado", "3 simulados" */
+export function textoSimulados(n: number): string {
+  return n === 1 ? "1 simulado" : `${n} simulados`;
+}
+
+type ConteudoPlano = {
+  tipoAcesso: string;
+  quantidadeSimulados: number | null;
+  duracaoQuantidade: number;
+  duracaoUnidade: string;
+};
+
+/** O que o plano dá: "3 simulados" (pacote) ou "1 mês", "12 meses" (por tempo). */
+export function descreverConteudo(p: ConteudoPlano): string {
+  return p.tipoAcesso === "pacote" && p.quantidadeSimulados
+    ? textoSimulados(p.quantidadeSimulados)
+    : descreverDuracao(p.duracaoQuantidade, p.duracaoUnidade);
+}
+
+/** Linha abaixo do preço no card: "por mês" ou "pacote com 3 simulados". */
+export function legendaDoPreco(p: ConteudoPlano): string {
+  return p.tipoAcesso === "pacote" && p.quantidadeSimulados
+    ? `pacote com ${textoSimulados(p.quantidadeSimulados)}`
+    : periodoDoPlano(p.duracaoQuantidade, p.duracaoUnidade);
 }
 
 /** Texto curto de período para o card do plano: "por mês", "por 12 meses", "por 30 dias". */

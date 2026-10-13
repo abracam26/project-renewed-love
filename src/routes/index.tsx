@@ -4,13 +4,14 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   Award,
   BookOpen,
-  CheckCircle2,
   CalendarCheck,
-  Lock,
+  CheckCircle2,
   ChevronRight,
   Clock,
   HelpCircle,
+  Layers,
   Loader2,
+  Lock,
   Target,
   TrendingUp,
   Trophy,
@@ -20,7 +21,8 @@ import {
 import { useToken } from "@/hooks/use-token";
 import { SelecaoSimulado } from "@/components/SelecaoSimulado";
 import { dashboardAluno } from "@/lib/simulado.functions";
-import { formatarDataBR, nomeDoPlano } from "@/lib/planos";
+import { textoSimulados } from "@/lib/pagamentos";
+import { formatarDataBR, nomeDoPlano, podeFazerSimulados } from "@/lib/planos";
 import { nomeProva } from "@/lib/provas";
 
 export const Route = createFileRoute("/")({
@@ -139,12 +141,21 @@ function Dashboard() {
             plano={d.perfil.plano}
             planoNome={d.perfil.plano_nome}
             validade={d.perfil.plano_validade}
+            creditos={d.perfil.creditos}
           />
 
           <SelecaoSimulado
             token={token}
             temCpf={d.perfil.temCpf}
-            liberado={d.perfil.acessoAtivo || d.perfil.isAdmin}
+            liberado={
+              d.perfil.isAdmin ||
+              podeFazerSimulados(d.perfil.plano, d.perfil.plano_validade, d.perfil.creditos)
+            }
+            saldo={
+              d.perfil.isAdmin || d.perfil.acessoAtivo || d.perfil.plano === "inativo"
+                ? null
+                : d.perfil.creditos
+            }
             bloqueado={d.perfil.plano === "inativo"}
             temSimuladoAberto={Boolean(d.emAndamento)}
           />
@@ -232,12 +243,15 @@ function StatusPlano({
   plano,
   planoNome,
   validade,
+  creditos,
 }: {
   acessoAtivo: boolean;
   isAdmin: boolean;
   plano: string;
   planoNome: string | null;
   validade: string | null;
+  /** Saldo de simulados dos pacotes */
+  creditos: number;
 }) {
   if (isAdmin && !acessoAtivo) {
     return (
@@ -254,6 +268,25 @@ function StatusPlano({
         <span>
           Plano {nomeDoPlano(plano, planoNome)} ativo, com acesso até{" "}
           <strong>{formatarDataBR(validade)}</strong>.
+          {creditos > 0 &&
+            ` Você também tem ${textoSimulados(creditos)} no saldo dos pacotes, que ficam guardados enquanto o plano estiver ativo.`}
+        </span>
+      </div>
+    );
+  }
+  if (plano !== "inativo" && creditos > 0) {
+    return (
+      <div className="panel flex items-center gap-3 border-success/40 p-4 text-sm text-card-foreground">
+        <Layers className="size-5 shrink-0 text-success" />
+        <span>
+          Você tem <strong>{textoSimulados(creditos)}</strong> no seu saldo. Cada simulado iniciado
+          usa 1, e o saldo não vence.{" "}
+          <Link
+            to="/planos"
+            className="font-semibold text-primary underline-offset-2 hover:underline"
+          >
+            Comprar mais
+          </Link>
         </span>
       </div>
     );

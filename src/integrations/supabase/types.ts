@@ -442,6 +442,60 @@ export type Database = {
         }
         Relationships: []
       }
+      movimentos_creditos: {
+        Row: {
+          created_at: string
+          feito_por: string | null
+          id: string
+          observacao: string | null
+          origem: string
+          pedido_id: string | null
+          quantidade: number
+          saldo_depois: number
+          simulado_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          feito_por?: string | null
+          id?: string
+          observacao?: string | null
+          origem: string
+          pedido_id?: string | null
+          quantidade: number
+          saldo_depois: number
+          simulado_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          feito_por?: string | null
+          id?: string
+          observacao?: string | null
+          origem?: string
+          pedido_id?: string | null
+          quantidade?: number
+          saldo_depois?: number
+          simulado_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movimentos_creditos_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movimentos_creditos_simulado_id_fkey"
+            columns: ["simulado_id"]
+            isOneToOne: false
+            referencedRelation: "simulados"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notificacoes: {
         Row: {
           created_at: string
@@ -566,6 +620,8 @@ export type Database = {
           comprador_nome: string
           comprador_tipo: string
           created_at: string
+          creditos_concedidos: number | null
+          creditos_removidos: number | null
           criado_por: string | null
           desconto_associado: boolean
           dias_concedidos: number | null
@@ -588,6 +644,7 @@ export type Database = {
           plano_id: string
           plano_nome: string
           plano_nome_anterior: string | null
+          plano_quantidade_simulados: number | null
           plano_tipo_acesso: string
           status: string
           teste: boolean
@@ -611,6 +668,8 @@ export type Database = {
           comprador_nome: string
           comprador_tipo: string
           created_at?: string
+          creditos_concedidos?: number | null
+          creditos_removidos?: number | null
           criado_por?: string | null
           desconto_associado?: boolean
           dias_concedidos?: number | null
@@ -633,6 +692,7 @@ export type Database = {
           plano_id: string
           plano_nome: string
           plano_nome_anterior?: string | null
+          plano_quantidade_simulados?: number | null
           plano_tipo_acesso: string
           status?: string
           teste?: boolean
@@ -656,6 +716,8 @@ export type Database = {
           comprador_nome?: string
           comprador_tipo?: string
           created_at?: string
+          creditos_concedidos?: number | null
+          creditos_removidos?: number | null
           criado_por?: string | null
           desconto_associado?: boolean
           dias_concedidos?: number | null
@@ -678,6 +740,7 @@ export type Database = {
           plano_id?: string
           plano_nome?: string
           plano_nome_anterior?: string | null
+          plano_quantidade_simulados?: number | null
           plano_tipo_acesso?: string
           status?: string
           teste?: boolean
@@ -728,6 +791,7 @@ export type Database = {
           parcelas_max: number
           preco_associado_centavos: number | null
           preco_centavos: number
+          quantidade_simulados: number | null
           tipo_acesso: string
           updated_at: string
         }
@@ -746,6 +810,7 @@ export type Database = {
           parcelas_max?: number
           preco_associado_centavos?: number | null
           preco_centavos?: number
+          quantidade_simulados?: number | null
           tipo_acesso: string
           updated_at?: string
         }
@@ -764,6 +829,7 @@ export type Database = {
           parcelas_max?: number
           preco_associado_centavos?: number | null
           preco_centavos?: number
+          quantidade_simulados?: number | null
           tipo_acesso?: string
           updated_at?: string
         }
@@ -780,6 +846,7 @@ export type Database = {
           cpf: string | null
           cpf_hash: string | null
           created_at: string
+          creditos_simulados: number
           email: string | null
           full_name: string | null
           id: string
@@ -802,6 +869,7 @@ export type Database = {
           cpf?: string | null
           cpf_hash?: string | null
           created_at?: string
+          creditos_simulados?: number
           email?: string | null
           full_name?: string | null
           id: string
@@ -824,6 +892,7 @@ export type Database = {
           cpf?: string | null
           cpf_hash?: string | null
           created_at?: string
+          creditos_simulados?: number
           email?: string | null
           full_name?: string | null
           id?: string
@@ -1122,6 +1191,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_ajustar_creditos: {
+        Args: {
+          p_observacao: string
+          p_por: string
+          p_quantidade: number
+          p_saldo_esperado: number
+          p_user: string
+        }
+        Returns: number
+      }
       admin_definir_plano: {
         Args: {
           p_plano: string
@@ -1145,6 +1224,7 @@ export type Database = {
           cadastro_completo: boolean
           cnpj: string
           cpf: string
+          creditos: number
           criado_em: string
           email: string
           instituicao: string
@@ -1178,6 +1258,10 @@ export type Database = {
           p_por: string
         }
         Returns: Json
+      }
+      consumir_credito_simulado: {
+        Args: { p_simulado: string; p_user: string }
+        Returns: number
       }
       contar_questoes_por_exame_tema: {
         Args: never

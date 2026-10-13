@@ -13,11 +13,13 @@ import {
 import { mensagemErro } from "@/lib/erros";
 import {
   centavosParaTexto,
+  descreverConteudo,
   descreverDuracao,
   FORMAS_PAGAMENTO,
   formatarReais,
+  legendaDoPreco,
+  MAX_SIMULADOS_PACOTE,
   METODO_PAGAMENTO_LABEL,
-  periodoDoPlano,
   reaisParaCentavos,
   TIPO_ACESSO_LABEL,
   TIPOS_ACESSO,
@@ -32,6 +34,7 @@ import { cn } from "@/lib/utils";
 /**
  * Catálogo de planos à venda (/admin/pagamentos): nome, preço, duração e
  * categoria de acesso de cada plano que o aluno pode comprar na página Planos.
+ * O "Pacote de simulados" tem uma quantidade de simulados em vez de duração.
  */
 
 const inputClass =
@@ -49,6 +52,8 @@ type Form = {
   tipoAcesso: TipoAcesso;
   duracaoQuantidade: string;
   duracaoUnidade: UnidadeDuracao;
+  /** Pacote: quantos simulados o aluno ganha */
+  quantidadeSimulados: string;
   preco: string;
   /** Preço para associados ABRACAM (vazio = sem preço especial) */
   precoAssociado: string;
@@ -68,6 +73,7 @@ function formNovo(ordem: number): Form {
     tipoAcesso: "mensal",
     duracaoQuantidade: "1",
     duracaoUnidade: "meses",
+    quantidadeSimulados: "",
     preco: "",
     precoAssociado: "",
     descricao: "",
@@ -87,6 +93,7 @@ function formDoPlano(p: PlanoAdmin): Form {
     tipoAcesso: p.tipoAcesso,
     duracaoQuantidade: String(p.duracaoQuantidade),
     duracaoUnidade: p.duracaoUnidade,
+    quantidadeSimulados: p.quantidadeSimulados !== null ? String(p.quantidadeSimulados) : "",
     preco: p.precoCentavos > 0 ? centavosParaTexto(p.precoCentavos) : "",
     precoAssociado:
       p.precoAssociadoCentavos !== null ? centavosParaTexto(p.precoAssociadoCentavos) : "",
@@ -214,7 +221,7 @@ export function GestorPlanos({ token }: { token: string }) {
                       </>
                     )}
                     {" · "}
-                    {descreverDuracao(p.duracaoQuantidade, p.duracaoUnidade)}
+                    {descreverConteudo(p)}
                     {" · "}
                     Categoria de acesso: {TIPO_ACESSO_LABEL[p.tipoAcesso]}
                   </p>
@@ -309,14 +316,31 @@ function EditorPlano({
         ? "Nome muito longo."
         : null;
 
+  const pacote = f.tipoAcesso === "pacote";
   const quantidade = Number(f.duracaoQuantidade);
   const maxDuracao = f.duracaoUnidade === "meses" ? 120 : 3660;
-  const erroDuracao =
-    f.duracaoQuantidade.trim() === "" || !Number.isInteger(quantidade) || quantidade < 1
+  const erroDuracao = pacote
+    ? null
+    : f.duracaoQuantidade.trim() === "" || !Number.isInteger(quantidade) || quantidade < 1
       ? "Informe a duração com um número inteiro (1 ou mais)."
       : quantidade > maxDuracao
         ? `Duração máxima: ${maxDuracao} ${f.duracaoUnidade}.`
         : null;
+  const simulados = Number(f.quantidadeSimulados);
+  const erroSimulados = !pacote
+    ? null
+    : f.quantidadeSimulados.trim() === "" ||
+        !Number.isInteger(simulados) ||
+        simulados < 1 ||
+        simulados > MAX_SIMULADOS_PACOTE
+      ? `Informe quantos simulados o pacote tem (de 1 a ${MAX_SIMULADOS_PACOTE}).`
+      : null;
+  const conteudo = {
+    tipoAcesso: f.tipoAcesso,
+    quantidadeSimulados: pacote && !erroSimulados ? simulados : null,
+    duracaoQuantidade: quantidade,
+    duracaoUnidade: f.duracaoUnidade,
+  };
 
   const precoTexto = f.preco.trim();
   const precoCentavos = precoTexto ? reaisParaCentavos(precoTexto) : 0;
@@ -366,6 +390,7 @@ function EditorPlano({
   const erro =
     erroNome ??
     erroDuracao ??
+    erroSimulados ??
     erroPreco ??
     erroPrecoAssociado ??
     erroBeneficios ??
@@ -383,8 +408,10 @@ function EditorPlano({
           descricao: f.descricao.trim(),
           beneficios,
           tipoAcesso: f.tipoAcesso,
-          duracaoQuantidade: quantidade,
-          duracaoUnidade: f.duracaoUnidade,
+          quantidadeSimulados: pacote ? simulados : null,
+          // No pacote a duração não se aplica (o servidor grava um valor fixo)
+          duracaoQuantidade: pacote ? 1 : quantidade,
+          duracaoUnidade: pacote ? "meses" : f.duracaoUnidade,
           precoCentavos: precoCentavos ?? 0,
           precoAssociadoCentavos: precoAssocTexto ? precoAssociadoCentavos : null,
           formasPagamento: f.formasPagamento,
@@ -460,46 +487,70 @@ function EditorPlano({
             ))}
           </select>
           <span className="mt-1 block text-[11px]">
-            Define as regras de acesso e aparece para o aluno se o nome do plano não estiver
-            disponível.
+            {pacote
+              ? "Pacote: o aluno ganha uma quantidade de simulados, que somam ao saldo dele e não vencem. Cada simulado iniciado gasta 1."
+              : "Define as regras de acesso e aparece para o aluno se o nome do plano não estiver disponível."}
           </span>
         </label>
 
-        <div className="text-xs text-muted-foreground">
-          <span>Duração do acesso</span>
-          <div className="mt-1 flex gap-2">
+        {pacote ? (
+          <label className="block text-xs text-muted-foreground">
+            Quantidade de simulados
             <input
               type="number"
               min={1}
-              max={maxDuracao}
+              max={MAX_SIMULADOS_PACOTE}
               step={1}
-              value={f.duracaoQuantidade}
-              onChange={(e) => set("duracaoQuantidade", e.target.value)}
-              aria-label="Quantidade"
-              className={`${inputClass} w-24`}
+              value={f.quantidadeSimulados}
+              onChange={(e) => set("quantidadeSimulados", e.target.value)}
+              placeholder="Ex.: 3, 5 ou 10"
+              className={`mt-1 ${inputClass}`}
             />
-            <select
-              value={f.duracaoUnidade}
-              onChange={(e) => set("duracaoUnidade", e.target.value as UnidadeDuracao)}
-              aria-label="Unidade"
-              className={`${inputClass} flex-1`}
-            >
-              {UNIDADES_DURACAO.map((u) => (
-                <option key={u} value={u}>
-                  {u}
-                </option>
-              ))}
-            </select>
+            {erroSimulados && (tentou || f.quantidadeSimulados.trim() !== "") ? (
+              <span className="mt-1 block text-destructive">{erroSimulados}</span>
+            ) : (
+              <span className="mt-1 block text-[11px]">
+                Vale para ABT1, ABT2 ou ABT – Correspondentes, à escolha do aluno.
+              </span>
+            )}
+          </label>
+        ) : (
+          <div className="text-xs text-muted-foreground">
+            <span>Duração do acesso</span>
+            <div className="mt-1 flex gap-2">
+              <input
+                type="number"
+                min={1}
+                max={maxDuracao}
+                step={1}
+                value={f.duracaoQuantidade}
+                onChange={(e) => set("duracaoQuantidade", e.target.value)}
+                aria-label="Quantidade"
+                className={`${inputClass} w-24`}
+              />
+              <select
+                value={f.duracaoUnidade}
+                onChange={(e) => set("duracaoUnidade", e.target.value as UnidadeDuracao)}
+                aria-label="Unidade"
+                className={`${inputClass} flex-1`}
+              >
+                {UNIDADES_DURACAO.map((u) => (
+                  <option key={u} value={u}>
+                    {u}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {erroDuracao ? (
+              <span className="mt-1 block text-destructive">{erroDuracao}</span>
+            ) : (
+              <span className="mt-1 block text-[11px]">
+                Acesso por {descreverDuracao(quantidade, f.duracaoUnidade)} a cada compra. Ex.: 1
+                mês, 12 meses, 30 dias.
+              </span>
+            )}
           </div>
-          {erroDuracao ? (
-            <span className="mt-1 block text-destructive">{erroDuracao}</span>
-          ) : (
-            <span className="mt-1 block text-[11px]">
-              Acesso por {descreverDuracao(quantidade, f.duracaoUnidade)} a cada compra. Ex.: 1 mês,
-              12 meses, 30 dias.
-            </span>
-          )}
-        </div>
+        )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -524,9 +575,12 @@ function EditorPlano({
           ) : (
             <span className="mt-1 block text-[11px]">
               O aluno verá:{" "}
-              {erroDuracao
+              {erroDuracao || erroSimulados
                 ? formatarReais(precoCentavos)
-                : `${formatarReais(precoCentavos)} ${periodoDoPlano(quantidade, f.duracaoUnidade)}`}
+                : `${formatarReais(precoCentavos)} ${legendaDoPreco(conteudo)}`}
+              {pacote && !erroSimulados && precoCentavos
+                ? ` (${formatarReais(Math.round(precoCentavos / simulados))} por simulado)`
+                : ""}
               . Vale para novos pedidos.
             </span>
           )}

@@ -3,7 +3,8 @@
  * nas telas (painel do aluno e gestão de usuários).
  *
  * Acesso ativo = plano mensal ou anual com validade até hoje, inclusive,
- * no fuso de São Paulo. Sem acesso ativo, o aluno só faz o teste grátis.
+ * no fuso de São Paulo. Sem acesso ativo, o aluno usa o saldo de simulados
+ * dos pacotes que comprou; sem saldo, só faz o teste grátis.
  */
 
 export const PLANOS = ["gratis", "mensal", "anual", "inativo"] as const;
@@ -33,6 +34,19 @@ export function acessoAtivo(plano: string | null | undefined, validade: string |
   if (!plano || !validade) return false;
   if (!(PLANOS_PAGOS as readonly string[]).includes(plano)) return false;
   return validade.slice(0, 10) >= hojeSaoPaulo();
+}
+
+/**
+ * Pode fazer os simulados completos? Plano por tempo ativo ou saldo de
+ * pacote (conta bloqueada nunca). O teste grátis é tratado à parte.
+ */
+export function podeFazerSimulados(
+  plano: string | null | undefined,
+  validade: string | null | undefined,
+  creditos: number | null | undefined,
+) {
+  if (plano === "inativo") return false;
+  return acessoAtivo(plano, validade) || (creditos ?? 0) > 0;
 }
 
 /** Soma dias a uma data AAAA-MM-DD (sem depender do fuso do navegador). */

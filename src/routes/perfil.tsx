@@ -23,6 +23,7 @@ import { cnpjValido, formatarCnpj, limparCnpj } from "@/lib/cnpj";
 import { mascararCpf } from "@/lib/cpf";
 import { mensagemErro } from "@/lib/erros";
 import { CONTROLADOR } from "@/lib/juridico";
+import { textoSimulados } from "@/lib/pagamentos";
 import { formatarDataBR, nomeDoPlano } from "@/lib/planos";
 import { enviarLinkDeRecuperacao } from "@/lib/recuperacao-senha";
 import { definirParticipacaoRanking, meuPerfil } from "@/lib/usuarios.functions";
@@ -284,6 +285,15 @@ function Perfil() {
               <p className="text-sm font-semibold text-info">Conta de administrador</p>
               <p className="mt-1 text-xs text-card-foreground">Todos os simulados liberados.</p>
             </div>
+          ) : p.plano !== "inativo" && p.creditos > 0 ? (
+            <div className="mt-6 rounded-md border border-success/40 bg-success/10 px-4 py-4">
+              <p className="text-sm font-semibold text-success">
+                {textoSimulados(p.creditos)} no seu saldo
+              </p>
+              <p className="mt-1 text-xs text-card-foreground">
+                Pacote de simulados: cada simulado iniciado usa 1, e o saldo não vence.
+              </p>
+            </div>
           ) : (
             <div className="mt-6 rounded-md border border-destructive/40 bg-destructive/10 px-4 py-4">
               <p className="text-sm font-semibold text-destructive">
@@ -297,6 +307,12 @@ function Perfil() {
                 Sem plano ativo, você pode fazer apenas o teste grátis.
               </p>
             </div>
+          )}
+          {p.acessoAtivo && p.creditos > 0 && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Você também tem {textoSimulados(p.creditos)} no saldo dos pacotes. Enquanto o plano
+              estiver ativo, os simulados não gastam o saldo.
+            </p>
           )}
           {p.plano === "inativo" ? (
             <a
@@ -312,7 +328,9 @@ function Perfil() {
               className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
             >
               <CreditCard className="size-4" />
-              {p.acessoAtivo ? "Renovar ou ver meus pedidos" : "Contratar plano"}
+              {p.acessoAtivo || p.creditos > 0
+                ? "Renovar, comprar mais ou ver meus pedidos"
+                : "Contratar plano"}
             </Link>
           )}
           {/* Conta bloqueada: um pagamento não libera o acesso, então não promete isso */}

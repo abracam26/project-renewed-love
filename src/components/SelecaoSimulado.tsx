@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useNavigate } from "@tanstack/react-router";
 import { Loader2, Play, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { mensagemErro } from "@/lib/erros";
+import { textoSimulados } from "@/lib/pagamentos";
 import { guardarSessaoProva } from "@/lib/sessao-prova";
 import { iniciarSimulado, listarConfigsProva, type TipoProva } from "@/lib/simulado.functions";
 import {
@@ -56,13 +57,16 @@ export function SelecaoSimulado({
   token,
   temCpf,
   liberado,
+  saldo = null,
   bloqueado = false,
   temSimuladoAberto,
 }: {
   token: string;
   temCpf: boolean;
-  /** Plano ativo ou admin: libera ABT1, ABT2 e ABT – Correspondentes. */
+  /** Plano ativo, saldo de pacote ou admin: libera ABT1, ABT2 e ABT – Correspondentes. */
   liberado: boolean;
+  /** Saldo de simulados quando é ele que libera (sem plano por tempo); null = não gasta saldo */
+  saldo?: number | null;
   /** Conta bloqueada pelo admin (plano 'inativo'): não pode contratar. */
   bloqueado?: boolean;
   /** Há um simulado que ficou em andamento (será encerrado ao iniciar outro). */
@@ -71,6 +75,7 @@ export function SelecaoSimulado({
   const listar = useServerFn(listarConfigsProva);
   const iniciar = useServerFn(iniciarSimulado);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [confirmar, setConfirmar] = useState<TipoProva | null>(null);
   const [escolhendoGratis, setEscolhendoGratis] = useState(false);
 
@@ -84,6 +89,12 @@ export function SelecaoSimulado({
     onSuccess: (r) => {
       // A prova fica presa a esta aba: sem a sessão, não há como continuar
       guardarSessaoProva(r.simuladoId, r.sessao);
+      // O saldo de simulados mudou: painel, Planos e Perfil leem de novo ao voltar
+      if (r.saldoRestante !== null) {
+        void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+        void queryClient.invalidateQueries({ queryKey: ["planos-aluno"] });
+        void queryClient.invalidateQueries({ queryKey: ["meu-perfil"] });
+      }
       void navigate({ to: "/prova/$id", params: { id: r.simuladoId } });
     },
     onError: (e) => {
@@ -135,7 +146,7 @@ export function SelecaoSimulado({
                 <p className="mt-2 text-[11px] text-destructive">
                   {bloqueado
                     ? "Conta bloqueada. Fale com a ABRACAM."
-                    : "Disponível com plano ativo. Veja os planos no menu Planos."}
+                    : "Disponível com plano ativo ou pacote de simulados. Veja no menu Planos."}
                 </p>
               )}
               <button
@@ -219,6 +230,13 @@ export function SelecaoSimulado({
                   aba, abrir o simulado em outra aba ou sair para outra página encerra a prova, e
                   ela conta como abandonada.
                 </p>
+                {saldo !== null && confirmar && !confirmar.startsWith("GRATIS") && (
+                  <p>
+                    Este simulado usa <strong>1 do seu saldo</strong> de {textoSimulados(saldo)} (
+                    {saldo - 1 === 1 ? "fica" : "ficam"} {textoSimulados(Math.max(0, saldo - 1))}).
+                    O simulado iniciado é descontado mesmo que não seja finalizado.
+                  </p>
+                )}
                 {confirmar?.startsWith("GRATIS") && (
                   <p>
                     O teste grátis conta como utilizado assim que você iniciar. Ele vale uma única

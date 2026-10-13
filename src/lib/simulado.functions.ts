@@ -8,7 +8,9 @@ import { LETRAS, type Letra, type QuestaoRow } from "@/lib/questoes-schema";
 /**
  * Motor de simulado: iniciar, buscar em andamento, responder, finalizar,
  * abandonar, histórico e relatórios do aluno. O teste grátis é controlado
- * pelo hash do CPF; os simulados completos exigem plano ativo (admins liberados).
+ * pelo hash do CPF; os simulados completos exigem plano por tempo ativo ou
+ * saldo de pacote (admins liberados). Sem plano por tempo, cada simulado
+ * completo iniciado consome 1 do saldo, mesmo que não seja finalizado.
  *
  * Não existe "parar e retomar depois": o simulado só continua na aba em que
  * foi iniciado (sessao_prova, guardada no sessionStorage dessa aba). Abrir em
@@ -187,7 +189,7 @@ export const iniciarSimulado = createServerFn({ method: "POST" })
     const [{ data: perfil }, { data: papel }] = await Promise.all([
       supabaseAdmin
         .from("profiles")
-        .select("cpf, cpf_hash, plano, plano_validade, cadastro_completo_em")
+        .select("cpf, cpf_hash, plano, plano_validade, cadastro_completo_em, creditos_simulados")
         .eq("id", userId)
         .maybeSingle(),
       supabaseAdmin
@@ -204,9 +206,11 @@ export const iniciarSimulado = createServerFn({ method: "POST" })
     if (!gratis && !admin && perfil?.plano === "inativo") {
       throw new Error("Sua conta está bloqueada. Fale com a ABRACAM.");
     }
-    if (!gratis && !admin && !acessoAtivo(perfil?.plano, perfil?.plano_validade)) {
+    // Sem plano por tempo ativo, o simulado completo sai do saldo do pacote
+    const usaSaldo = !gratis && !admin && !acessoAtivo(perfil?.plano, perfil?.plano_validade);
+    if (usaSaldo && (perfil?.creditos_simulados ?? 0) <= 0) {
       throw new Error(
-        "Seu plano não está ativo. Sem plano, você pode fazer apenas o teste grátis. Veja os planos na página Planos para liberar o acesso.",
+        "Você não tem plano ativo nem simulados no saldo. Sem plano, você pode fazer apenas o teste grátis. Veja os planos e pacotes na página Planos para liberar o acesso.",
       );
     }
 
@@ -277,6 +281,20 @@ export const iniciarSimulado = createServerFn({ method: "POST" })
       throw new Error(`Falha ao montar simulado: ${eIns.message}`);
     }
 
+    // Simulado montado: tira 1 do saldo (o banco recusa se o saldo acabou no meio do caminho)
+    let saldoRestante: number | null = null;
+    if (usaSaldo) {
+      const { data: saldo, error: eCred } = await supabaseAdmin.rpc("consumir_credito_simulado", {
+        p_user: userId,
+        p_simulado: sim.id,
+      });
+      if (eCred) {
+        await supabaseAdmin.from("simulados").delete().eq("id", sim.id);
+        throw new Error(eCred.message);
+      }
+      saldoRestante = saldo;
+    }
+
     // Marca o CPF como tendo usado o grátis (mesmo antes de terminar, para
     // impedir múltiplos inícios abusivos)
     if (gratis) {
@@ -292,7 +310,7 @@ export const iniciarSimulado = createServerFn({ method: "POST" })
       }
     }
 
-    return { simuladoId: sim.id, sessao };
+    return { simuladoId: sim.id, sessao, saldoRestante };
   });
 
 // ---------------------------------------------------------------------
@@ -589,7 +607,9 @@ export const dashboardAluno = createServerFn({ method: "POST" })
       supabaseAdmin.rpc("estatisticas_aluno", { p_user_id: userId }).single(),
       supabaseAdmin
         .from("profiles")
-        .select("username, full_name, nome_completo, cpf_hash, plano, plano_validade, plano_nome")
+        .select(
+          "username, full_name, nome_completo, cpf_hash, plano, plano_validade, plano_nome, creditos_simulados",
+        )
         .eq("id", userId)
         .maybeSingle(),
       supabaseAdmin
@@ -633,6 +653,8 @@ export const dashboardAluno = createServerFn({ method: "POST" })
         plano_nome: perfil?.plano_nome ?? null,
         plano_validade: perfil?.plano_validade ?? null,
         acessoAtivo: acessoAtivo(perfil?.plano, perfil?.plano_validade),
+        /** Saldo de simulados dos pacotes (usado quando não há plano por tempo ativo) */
+        creditos: perfil?.creditos_simulados ?? 0,
         isAdmin: Boolean(papel),
       },
       recentes: recentes ?? [],

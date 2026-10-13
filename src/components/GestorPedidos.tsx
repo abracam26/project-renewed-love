@@ -29,9 +29,11 @@ import {
   STATUS_PAGAMENTO_LABEL,
   STATUS_PEDIDO_LABEL,
   centavosParaTexto,
+  descreverConteudo,
   descreverDuracao,
   formatarReais,
   reaisParaCentavos,
+  textoSimulados,
   type FiltroPedido,
   type MetodoPagamento,
   type StatusPedido,
@@ -162,12 +164,14 @@ function descreverAcesso(userId: string | null, perfil: Perfil): { texto: string
   if (userId === null) return { texto: "conta excluída", classe: "text-destructive" };
   if (!perfil) return { texto: "não foi possível ler o acesso", classe: "text-destructive" };
   if (perfil.plano === "inativo") return { texto: "conta bloqueada", classe: "text-destructive" };
+  const saldo = perfil.creditos > 0 ? `${textoSimulados(perfil.creditos)} no saldo` : "";
   if (acessoAtivo(perfil.plano, perfil.planoValidade)) {
     return {
-      texto: `${nomeDoPlano(perfil.plano, perfil.planoNome)} até ${formatarDataBR(perfil.planoValidade)}`,
+      texto: `${nomeDoPlano(perfil.plano, perfil.planoNome)} até ${formatarDataBR(perfil.planoValidade)}${saldo ? ` + ${saldo}` : ""}`,
       classe: "text-success",
     };
   }
+  if (saldo) return { texto: `sem plano por tempo; ${saldo}`, classe: "text-success" };
   if ((perfil.plano === "mensal" || perfil.plano === "anual") && perfil.planoValidade) {
     return {
       texto: `sem plano ativo (venceu em ${formatarDataBR(perfil.planoValidade)})`,
@@ -377,9 +381,12 @@ export function GestorPedidos({ token }: { token: string }) {
       {acao?.tipo === "cancelar" && (
         <CancelarPedido token={token} pedido={acao.pedido} onFechar={fechar} />
       )}
-      {acao?.tipo === "estornar" && (
-        <EstornarPedido token={token} pedido={acao.pedido} onFechar={fechar} />
-      )}
+      {acao?.tipo === "estornar" &&
+        (acao.pedido.planoTipoAcesso === "pacote" ? (
+          <EstornarPacote token={token} pedido={acao.pedido} onFechar={fechar} />
+        ) : (
+          <EstornarPedido token={token} pedido={acao.pedido} onFechar={fechar} />
+        ))}
       {acao?.tipo === "liberar" && (
         <ConfirmarPagamento
           token={token}
@@ -447,7 +454,7 @@ function CartaoPedido({ pedido: p, onAcao }: { pedido: PedidoAdmin; onAcao: (a: 
         <Info rotulo="Plano">
           {p.planoNome}{" "}
           <span className="text-xs text-muted-foreground">
-            ({descreverDuracao(p.duracaoQuantidade, p.duracaoUnidade)})
+            ({descreverConteudo({ ...p, tipoAcesso: p.planoTipoAcesso })})
           </span>
         </Info>
         <Info rotulo="Valor">
@@ -477,13 +484,19 @@ function CartaoPedido({ pedido: p, onAcao }: { pedido: PedidoAdmin; onAcao: (a: 
         </Info>
       </div>
 
-      {p.status === "pago" && (
-        <p className="rounded-md border border-success/30 bg-success/10 px-3 py-2 text-xs text-card-foreground">
-          Liberado em {dataHora(p.liberadoEm)} até{" "}
-          <strong>{formatarDataBR(p.validadeConcedida)}</strong>
-          {p.diasConcedidos !== null ? ` (+${descreverDuracao(p.diasConcedidos, "dias")})` : ""}.
-        </p>
-      )}
+      {p.status === "pago" &&
+        (p.planoTipoAcesso === "pacote" ? (
+          <p className="rounded-md border border-success/30 bg-success/10 px-3 py-2 text-xs text-card-foreground">
+            Liberado em {dataHora(p.liberadoEm)}:{" "}
+            <strong>+{textoSimulados(p.creditosConcedidos ?? 0)}</strong> no saldo do aluno.
+          </p>
+        ) : (
+          <p className="rounded-md border border-success/30 bg-success/10 px-3 py-2 text-xs text-card-foreground">
+            Liberado em {dataHora(p.liberadoEm)} até{" "}
+            <strong>{formatarDataBR(p.validadeConcedida)}</strong>
+            {p.diasConcedidos !== null ? ` (+${descreverDuracao(p.diasConcedidos, "dias")})` : ""}.
+          </p>
+        ))}
       {(p.status === "cancelado" || p.status === "expirado") && (
         <p className="rounded-md bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
           {p.status === "expirado" ? "Prazo vencido" : "Cancelado"} em {dataHora(p.canceladoEm)}
@@ -494,9 +507,13 @@ function CartaoPedido({ pedido: p, onAcao }: { pedido: PedidoAdmin; onAcao: (a: 
         <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-card-foreground">
           Estornado em {dataHora(p.estornadoEm)}
           {p.motivoEstorno ? `. Motivo: ${comPonto(p.motivoEstorno)}` : "."}{" "}
-          {p.acessoRemovido
-            ? "O acesso que este pedido liberou foi desfeito (os dias já usados não voltam)."
-            : "O acesso do aluno não foi alterado."}
+          {p.planoTipoAcesso === "pacote"
+            ? p.acessoRemovido
+              ? `${textoSimulados(p.creditosRemovidos ?? 0)} não usado${(p.creditosRemovidos ?? 0) === 1 ? " foi tirado" : "s foram tirados"} do saldo do aluno (os já feitos não voltam).`
+              : "O saldo do aluno não foi alterado."
+            : p.acessoRemovido
+              ? "O acesso que este pedido liberou foi desfeito (os dias já usados não voltam)."
+              : "O acesso do aluno não foi alterado."}
         </p>
       )}
 
@@ -681,10 +698,10 @@ function Rodape({
 }
 
 function resumoPedido(p: PedidoAdmin) {
-  return `Pedido ${p.codigo} de ${p.comprador.nome}: ${p.planoNome} (${descreverDuracao(
-    p.duracaoQuantidade,
-    p.duracaoUnidade,
-  )}), ${formatarReais(p.valorTotal)}.`;
+  return `Pedido ${p.codigo} de ${p.comprador.nome}: ${p.planoNome} (${descreverConteudo({
+    ...p,
+    tipoAcesso: p.planoTipoAcesso,
+  })}), ${formatarReais(p.valorTotal)}.`;
 }
 
 // ---------------------------------------------------------------------
@@ -750,8 +767,9 @@ function ConfirmarPagamento({
                 jaRecebido.pagoEm ? `, pago em ${dataDoMomento(jaRecebido.pagoEm)}` : ""
               }). Use “Liberar acesso com este pagamento” nele, em vez de registrar outro.`
             : null;
+  const pacote = p.planoTipoAcesso === "pacote";
   const validadeNova =
-    perfil && !bloqueio
+    perfil && !bloqueio && !pacote
       ? novaValidade(
           perfil.plano,
           perfil.planoValidade,
@@ -798,6 +816,11 @@ function ConfirmarPagamento({
       } else if (r.validade) {
         toast.success(
           `${g ? "Acesso liberado com o pagamento recebido" : "Pagamento confirmado. Acesso liberado"} até ${formatarDataBR(r.validade)}.`,
+          opcoes,
+        );
+      } else if (r.creditos) {
+        toast.success(
+          `${g ? "Liberado com o pagamento recebido" : "Pagamento confirmado"}: +${textoSimulados(r.creditos)} no saldo do aluno (agora ${textoSimulados(r.saldo ?? r.creditos)}).`,
           opcoes,
         );
       } else {
@@ -977,6 +1000,20 @@ function ConfirmarPagamento({
           )}
         </label>
 
+        {perfil && pacote && !bloqueio && (
+          <div className="rounded-md border border-success/30 bg-success/10 p-3 text-xs text-card-foreground">
+            <p>
+              Saldo de simulados: <strong>{textoSimulados(perfil.creditos)}</strong> → Depois de
+              confirmar:{" "}
+              <strong className="text-success">
+                {textoSimulados(perfil.creditos + (p.quantidadeSimulados ?? 0))}
+              </strong>
+            </p>
+            <p className="mt-1 text-muted-foreground">
+              O pacote soma ao saldo e não muda o plano por tempo do aluno. O saldo não vence.
+            </p>
+          </div>
+        )}
         {perfil && validadeNova && (
           <div className="rounded-md border border-success/30 bg-success/10 p-3 text-xs text-card-foreground">
             <p>
@@ -1268,6 +1305,134 @@ function EstornarPedido({ token, pedido: p, onFechar }: PropsAcao) {
             </Aviso>
           )}
           {previa && <p className="text-muted-foreground">{previa}</p>}
+        </div>
+
+        <Rodape ocupado={mut.isPending} onFechar={onFechar}>
+          <button type="submit" disabled={!podeEnviar} className={botaoPerigo}>
+            {mut.isPending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Undo2 className="size-4" />
+            )}
+            Estornar
+          </button>
+        </Rodape>
+      </form>
+    </Janela>
+  );
+}
+
+// ---------------------------------------------------------------------
+// c2) Estornar pedido de pacote: tira do saldo os simulados não usados
+// ---------------------------------------------------------------------
+function EstornarPacote({ token, pedido: p, onFechar }: PropsAcao) {
+  const estornar = useServerFn(estornarPedido);
+  const atualizar = useAtualizarPedidos();
+  const perfil = p.perfil;
+  const concedidos = p.creditosConcedidos ?? 0;
+  // Não dá para saber quais simulados vieram de qual pacote: tira até o que restou no saldo
+  const tiraveis = perfil ? Math.min(concedidos, perfil.creditos) : 0;
+  const [motivo, setMotivo] = useState("");
+  const [removerSaldo, setRemoverSaldo] = useState(tiraveis > 0);
+  const remover = tiraveis > 0 && removerSaldo;
+  const motivoOk = motivo.trim().length >= 3;
+
+  const mut = useMutation({
+    mutationFn: () =>
+      estornar({
+        data: { token, pedidoId: p.id, removerAcesso: remover, motivo: motivo.trim() },
+      }),
+    onSuccess: async (r) => {
+      toast.success(
+        r.modo === "creditos"
+          ? `Pedido estornado. ${textoSimulados(r.creditos_removidos)} ${r.creditos_removidos === 1 ? "foi tirado" : "foram tirados"} do saldo do aluno.`
+          : "Pedido estornado. O saldo do aluno não foi alterado.",
+      );
+      onFechar();
+      await atualizar();
+    },
+    onError: (e) => {
+      toast.error(mensagemErro(e));
+      void atualizar();
+    },
+  });
+
+  const podeEnviar = motivoOk && !mut.isPending;
+
+  return (
+    <Janela
+      titulo={
+        <>
+          <Undo2 className="size-5 text-destructive" /> Estornar pedido
+        </>
+      }
+      descricao={resumoPedido(p)}
+      ocupado={mut.isPending}
+      onFechar={onFechar}
+    >
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (podeEnviar) mut.mutate();
+        }}
+        className="space-y-3"
+      >
+        <p className="rounded-md bg-muted/60 p-3 text-xs text-muted-foreground">
+          O estorno aqui só registra a devolução no sistema e, se você marcar a opção abaixo, tira
+          do saldo do aluno os simulados deste pacote que ainda não foram usados (os já feitos não
+          voltam). A devolução do dinheiro em si (Pix, transferência, cartão) é feita fora do
+          sistema.
+        </p>
+
+        <label className="block text-xs text-muted-foreground">
+          Motivo do estorno (obrigatório, uso interno)
+          <textarea
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value)}
+            rows={2}
+            maxLength={500}
+            placeholder="Ex.: o aluno pediu o dinheiro de volta"
+            className={`mt-1 resize-y ${inputClass}`}
+          />
+          <span className="mt-1 block">
+            Fica só no registro da equipe: o aluno não vê este texto, apenas que o pagamento foi
+            estornado.
+          </span>
+          {!motivoOk && motivo.length > 0 && (
+            <span className="mt-1 block text-destructive">Informe o motivo do estorno.</span>
+          )}
+        </label>
+
+        <div className="space-y-2 rounded-md border border-border p-3 text-xs text-card-foreground">
+          <label
+            className={cn("flex items-center gap-2 font-medium", tiraveis === 0 && "opacity-60")}
+          >
+            <input
+              type="checkbox"
+              checked={remover}
+              disabled={tiraveis === 0}
+              onChange={(e) => setRemoverSaldo(e.target.checked)}
+              className="size-4 accent-primary"
+            />
+            {tiraveis > 0
+              ? `Tirar do saldo ${tiraveis === 1 ? "o 1 simulado não usado" : `os ${tiraveis} simulados não usados`} deste pacote`
+              : "Tirar do saldo os simulados deste pacote"}
+          </label>
+          <p className="text-muted-foreground">
+            {p.userId === null
+              ? "A conta do aluno foi excluída: não há saldo para tirar."
+              : !perfil
+                ? "Não foi possível ler o saldo do aluno. Atualize a lista e tente de novo."
+                : tiraveis === 0
+                  ? "O aluno não tem simulados no saldo: todos os deste pacote já foram usados."
+                  : remover
+                    ? `Saldo: ${textoSimulados(perfil.creditos)} → ${textoSimulados(perfil.creditos - tiraveis)}.${
+                        tiraveis < concedidos
+                          ? ` Dos ${concedidos} simulados deste pacote, ${concedidos - tiraveis} já ${concedidos - tiraveis === 1 ? "foi usado" : "foram usados"} e não voltam.`
+                          : ""
+                      }`
+                    : "O saldo do aluno continua como está."}
+          </p>
         </div>
 
         <Rodape ocupado={mut.isPending} onFechar={onFechar}>

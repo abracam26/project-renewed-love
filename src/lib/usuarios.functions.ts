@@ -248,7 +248,7 @@ export const meuPerfil = createServerFn({ method: "POST" })
       supabaseAdmin
         .from("profiles")
         .select(
-          "nome_completo, full_name, username, email, cpf, cpf_hash, cnpj, instituicao, plano, plano_validade, plano_nome, cadastro_completo_em, created_at, show_in_ranking",
+          "nome_completo, full_name, username, email, cpf, cpf_hash, cnpj, instituicao, plano, plano_validade, plano_nome, cadastro_completo_em, created_at, show_in_ranking, creditos_simulados",
         )
         .eq("id", user.id)
         .maybeSingle(),
@@ -287,6 +287,8 @@ export const meuPerfil = createServerFn({ method: "POST" })
       isAdmin: admin,
       gratuidadeUsada,
       participaRanking: perfil?.show_in_ranking ?? true,
+      /** Saldo de simulados dos pacotes */
+      creditos: perfil?.creditos_simulados ?? 0,
       /** Associado ABRACAM com desconto valendo agora (null = não é associado) */
       associado: associado ? { nome: associado.nome } : null,
     };
@@ -442,6 +444,7 @@ export const FILTROS_USUARIOS = [
   "ativos",
   "vencendo",
   "vencidos",
+  "com_saldo",
   "sem_plano",
   "incompletos",
   "admins",
@@ -529,6 +532,7 @@ export const exportarUsuariosCsv = createServerFn({ method: "POST" })
         "Tipo de plano",
         "Acesso válido até",
         "Acesso ativo",
+        "Saldo de simulados (pacotes)",
         "Cadastro completo",
         "Administrador",
         "Forma de login",
@@ -558,6 +562,7 @@ export const exportarUsuariosCsv = createServerFn({ method: "POST" })
             PLANO_LABEL[u.plano as Plano] ?? u.plano,
             u.plano_validade ? formatarDataBR(u.plano_validade) : "",
             u.acesso_ativo ? "Sim" : "Não",
+            u.creditos,
             u.cadastro_completo ? "Sim" : "Não",
             u.is_admin ? "Sim" : "Não",
             u.provedor === "google"
@@ -591,7 +596,7 @@ export const detalheUsuario = createServerFn({ method: "POST" })
         supabaseAdmin
           .from("profiles")
           .select(
-            "id, nome_completo, full_name, username, email, cpf, cpf_hash, cnpj, instituicao, plano, plano_validade, plano_nome, cadastro_completo_em, created_at, associado_id, associado_em, associado_origem",
+            "id, nome_completo, full_name, username, email, cpf, cpf_hash, cnpj, instituicao, plano, plano_validade, plano_nome, cadastro_completo_em, created_at, associado_id, associado_em, associado_origem, creditos_simulados",
           )
           .eq("id", data.userId)
           .maybeSingle(),
@@ -659,6 +664,8 @@ export const detalheUsuario = createServerFn({ method: "POST" })
       planoNome: perfil.plano_nome,
       planoValidade: perfil.plano_validade,
       acessoAtivo: acessoAtivo(perfil.plano, perfil.plano_validade),
+      /** Saldo de simulados dos pacotes */
+      creditos: perfil.creditos_simulados,
       cadastroCompleto: Boolean(perfil.cadastro_completo_em && perfil.cpf),
       cadastroCompletoEm: perfil.cadastro_completo_em,
       criadoEm: perfil.created_at,
@@ -748,4 +755,43 @@ export const atualizarPlano = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     const res = (r ?? {}) as { pedidos_cancelados?: string[] };
     return { ok: true as const, pedidosCancelados: res.pedidos_cancelados ?? [] };
+  });
+
+// ---------------------------------------------------------------------
+// Admin: ajuste manual do saldo de simulados (ex.: compensar um problema técnico)
+// ---------------------------------------------------------------------
+export const ajustarCreditos = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        token: tokenSchema,
+        userId: z.string().uuid(),
+        /** Positivo soma, negativo tira */
+        quantidade: z
+          .number()
+          .int("Use um número inteiro.")
+          .min(-1000, "Ajuste muito grande.")
+          .max(1000, "Ajuste muito grande.")
+          .refine((n) => n !== 0, "Informe quantos simulados somar ou tirar."),
+        observacao: z
+          .string()
+          .trim()
+          .min(3, "Explique o motivo do ajuste.")
+          .max(500, "Motivo muito longo."),
+        /** Saldo que a ficha mostrava (o banco recusa se mudou no meio) */
+        saldoEsperado: z.number().int().min(0),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin, user } = await exigirAdmin(data.token);
+    const { data: saldo, error } = await supabaseAdmin.rpc("admin_ajustar_creditos", {
+      p_user: data.userId,
+      p_quantidade: data.quantidade,
+      p_por: user.id,
+      p_observacao: data.observacao,
+      p_saldo_esperado: data.saldoEsperado,
+    });
+    if (error) throw new Error(error.message);
+    return { saldo };
   });
