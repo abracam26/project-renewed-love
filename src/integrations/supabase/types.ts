@@ -892,6 +892,7 @@ export type Database = {
           plano_nome: string | null
           plano_validade: string | null
           show_in_ranking: boolean
+          telefone: string | null
           updated_at: string
           username: string | null
         }
@@ -915,6 +916,7 @@ export type Database = {
           plano_nome?: string | null
           plano_validade?: string | null
           show_in_ranking?: boolean
+          telefone?: string | null
           updated_at?: string
           username?: string | null
         }
@@ -938,6 +940,7 @@ export type Database = {
           plano_nome?: string | null
           plano_validade?: string | null
           show_in_ranking?: boolean
+          telefone?: string | null
           updated_at?: string
           username?: string | null
         }

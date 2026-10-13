@@ -812,6 +812,7 @@ function PlanoIndisponivel({ onVoltar }: { onVoltar: () => void }) {
 
 /** O que vai ao servidor: a escolha do aluno e o que a tela mostrou sobre o pedido pendente. */
 type EnvioPedido = {
+  telefone: string | null;
   metodo: FormaManual;
   comprador: "cpf" | "cnpj";
   pendenteEsperado: string | null;
@@ -845,6 +846,7 @@ function FormContratar({
   const criar = useServerFn(criarPedido);
   const queryClient = useQueryClient();
   const [comprador, setComprador] = useState<"cpf" | "cnpj">("cpf");
+  const [telefone, setTelefone] = useState(formatarCelular(docs.telefone ?? ""));
   const [metodo, setMetodo] = useState<FormaManual | null>(
     formas.length === 1 ? (formas[0]?.metodo ?? null) : null,
   );
@@ -856,6 +858,7 @@ function FormContratar({
       : formas.length === 1
         ? (formas[0]?.metodo ?? null)
         : null;
+  const pixOnline = dados.gateway === "pagarme" && metodoValido === "pix";
   const compradorValido: "cpf" | "cnpj" = comprador === "cnpj" && !docs.cnpj ? "cpf" : comprador;
   // Impedimentos que podem ter chegado no recarregamento (mesma regra dos cartões)
   const barrado =
@@ -919,6 +922,7 @@ function FormContratar({
           comprador: v.comprador,
           pendenteEsperado: v.pendenteEsperado,
           manterEsperado: v.manterEsperado,
+          telefone: v.telefone,
         },
       }),
     onSuccess: async (r, v) => {
@@ -1066,10 +1070,31 @@ function FormContratar({
                 valendo: não faça outro pedido, aguarde a confirmação ou fale com a ABRACAM.{" "}
               </>
             )}
-            As instruções de pagamento aparecem em Meus pedidos, nesta página, logo depois do
-            pedido.
+            {pixOnline
+              ? "Depois do pedido, o QR Code do Pix aparece nesta página e o pagamento é confirmado sozinho."
+              : "As instruções de pagamento aparecem em Meus pedidos, nesta página, logo depois do pedido."}
           </p>
         </fieldset>
+
+        {pixOnline && (
+          <label className="block text-xs font-medium text-muted-foreground">
+            Celular com DDD (exigido pelo Pagar.me para o Pix)
+            <input
+              type="tel"
+              inputMode="numeric"
+              autoComplete="tel-national"
+              value={telefone}
+              onChange={(e) => setTelefone(formatarCelular(e.target.value))}
+              placeholder="(11) 91234-5678"
+              className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
+            />
+            {telefone && !celularValido(telefone) && (
+              <span className="mt-1 block text-[11px] text-destructive">
+                Informe o DDD e o número do celular.
+              </span>
+            )}
+          </label>
+        )}
 
         {recente && (
           <p className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-card-foreground">
@@ -1120,12 +1145,20 @@ function FormContratar({
         </button>
         <button
           type="button"
-          disabled={Boolean(barrado) || !metodoValido || mut.isPending || atualizando}
+          disabled={
+            Boolean(barrado) ||
+            !metodoValido ||
+            mut.isPending ||
+            atualizando ||
+            (pixOnline && !celularValido(telefone))
+          }
           onClick={() =>
             !barrado &&
             metodoValido &&
             !atualizando &&
+            (!pixOnline || celularValido(telefone)) &&
             mut.mutate({
+              telefone: pixOnline ? telefone.replace(/\D/g, "") : null,
               metodo: metodoValido,
               comprador: compradorValido,
               pendenteEsperado,
@@ -1367,4 +1400,16 @@ function CartaoPedido({
       )}
     </li>
   );
+}
+
+function formatarCelular(v: string) {
+  const d = v.replace(/\D/g, "").slice(0, 11);
+  if (d.length <= 2) return d.length ? `(${d}` : "";
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+}
+
+function celularValido(v: string) {
+  return /^[1-9]{2}9?\d{8}$/.test(v.replace(/\D/g, ""));
 }

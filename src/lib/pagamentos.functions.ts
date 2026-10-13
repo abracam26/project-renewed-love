@@ -227,7 +227,7 @@ export const planosParaAluno = createServerFn({ method: "POST" })
       supabaseAdmin
         .from("profiles")
         .select(
-          "plano, plano_validade, plano_nome, cpf, cpf_hash, cnpj, instituicao, cadastro_completo_em, creditos_simulados",
+          "plano, plano_validade, plano_nome, cpf, cpf_hash, cnpj, instituicao, cadastro_completo_em, creditos_simulados, telefone",
         )
         .eq("id", user.id)
         .maybeSingle(),
@@ -303,6 +303,7 @@ export const planosParaAluno = createServerFn({ method: "POST" })
         cpf: mascararDocumento(perfil?.cpf),
         cnpj: perfil?.cnpj ? mascararDocumento(perfil.cnpj) : null,
         empresa: perfil?.instituicao ?? null,
+        telefone: perfil?.telefone ?? null,
       },
       gateway: config.gateway,
       formas: config.formasManual.map((f) => ({
@@ -330,6 +331,13 @@ export const criarPedido = createServerFn({ method: "POST" })
           errorMap: () => ({ message: "Escolha a forma de pagamento." }),
         }),
         comprador: z.enum(["cpf", "cnpj"]).default("cpf"),
+        /** Celular com DDD (pagamento online por Pix) */
+        telefone: z
+          .string()
+          .transform((t) => t.replace(/\D/g, "").replace(/^55(?=\d{10,11}$)/, ""))
+          .refine((t) => /^[1-9]{2}9?\d{8}$/.test(t), "Celular inválido: informe DDD e número.")
+          .nullable()
+          .default(null),
         /** O que a página mostrava: código do pedido pendente (ou null) e se ele seria mantido */
         pendenteEsperado: z.string().max(40).nullable().default(null),
         manterEsperado: z.boolean().nullable().default(null),
@@ -358,10 +366,18 @@ export const criarPedido = createServerFn({ method: "POST" })
     erroRpc(error);
     const res = r as { pedido_id: string; codigo: string; reaproveitado: boolean };
 
-    const pix =
-      config.gateway === "pagarme" && data.metodo === "pix"
-        ? await pixDoPedido(supabaseAdmin, res.pedido_id, user.id, user.email ?? null)
-        : null;
+    const online = config.gateway === "pagarme" && data.metodo === "pix";
+    if (online) {
+      if (!data.telefone) throw new Error("Informe seu celular com DDD para pagar com Pix.");
+      const { error: eTel } = await supabaseAdmin
+        .from("profiles")
+        .update({ telefone: data.telefone })
+        .eq("id", user.id);
+      if (eTel) throw new Error(eTel.message);
+    }
+    const pix = online
+      ? await pixDoPedido(supabaseAdmin, res.pedido_id, user.id, user.email ?? null)
+      : null;
 
     return {
       pedidoId: res.pedido_id,
@@ -389,6 +405,16 @@ async function pixDoPedido(
   if (!p || p.user_id !== userId) throw new Error("Pedido não encontrado.");
   if (p.status !== "pendente") throw new Error("Este pedido não está aguardando pagamento.");
 
+  const { data: perfil, error: ePerfil } = await supabaseAdmin
+    .from("profiles")
+    .select("telefone")
+    .eq("id", userId)
+    .maybeSingle();
+  if (ePerfil) throw new Error(ePerfil.message);
+  const telefone = perfil?.telefone ?? "";
+  if (!telefone)
+    throw new Error("Informe seu celular com DDD para pagar com Pix: faça o pedido de novo.");
+
   const { consultarOrdemPagarme, criarOrdemPix, extrairPix } = await import("@/lib/pagarme.server");
   if (p.external_order_id) {
     const ordem = await consultarOrdemPagarme(p.external_order_id);
@@ -411,6 +437,7 @@ async function pixDoPedido(
     compradorEmail: p.comprador_email ?? emailUsuario ?? "",
     compradorDocumento: p.comprador_documento,
     compradorTipo: p.comprador_tipo === "cnpj" ? "cnpj" : "cpf",
+    compradorTelefone: telefone,
     expiracaoSegundos: Math.max(600, Math.min(segundosAtePrazo, 30 * 86400)),
   });
 }

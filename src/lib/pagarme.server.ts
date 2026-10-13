@@ -112,6 +112,8 @@ export type DadosCriacao = {
   compradorEmail: string;
   compradorDocumento: string;
   compradorTipo: "cpf" | "cnpj";
+  /** Celular com DDD, só dígitos (10 ou 11): o Pagar.me exige telefone no Pix */
+  compradorTelefone: string;
   expiracaoSegundos: number;
 };
 
@@ -143,6 +145,13 @@ export async function criarOrdemPix(
       type: dados.compradorTipo === "cnpj" ? "company" : "individual",
       document: dados.compradorDocumento.replace(/\D/g, ""),
       document_type: dados.compradorTipo === "cnpj" ? "CNPJ" : "CPF",
+      phones: {
+        mobile_phone: {
+          country_code: "55",
+          area_code: dados.compradorTelefone.slice(0, 2),
+          number: dados.compradorTelefone.slice(2),
+        },
+      },
     },
     payments: [{ payment_method: "pix", pix: { expires_in: dados.expiracaoSegundos } }],
     metadata: { pedido_id: dados.pedidoId, codigo: dados.codigo },
