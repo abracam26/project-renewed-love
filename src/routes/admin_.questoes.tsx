@@ -2,7 +2,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, Database } from "lucide-react";
 import { AdminGate } from "@/components/AdminGate";
 import { GestorQuestoes } from "@/components/GestorQuestoes";
-import { ImportadorQuestoes } from "@/components/ImportadorQuestoes";
 
 export const Route = createFileRoute("/admin_/questoes")({
   ssr: false,
@@ -11,10 +10,10 @@ export const Route = createFileRoute("/admin_/questoes")({
       { title: "Banco de questões — Simulador ABT" },
       {
         name: "description",
-        content: "Importe lotes de questões em JSON ou CSV e gerencie o banco do simulador.",
+        content: "Gerencie o banco de questões do simulador.",
       },
       { property: "og:title", content: "Banco de questões — Simulador ABT" },
-      { property: "og:description", content: "Importação e gestão do banco de questões." },
+      { property: "og:description", content: "Gestão do banco de questões." },
     ],
   }),
   component: AdminQuestoes,
@@ -39,8 +38,12 @@ function AdminQuestoes() {
       <AdminGate>
         {({ token }) => (
           <div className="space-y-5">
-            <ImportadorQuestoes token={token} />
             <GestorQuestoes token={token} />
+            <p className="text-right text-[11px] text-muted-foreground/70">
+              <Link to="/admin/importar" className="hover:text-muted-foreground hover:underline">
+                Importação em lote (uso técnico)
+              </Link>
+            </p>
           </div>
         )}
       </AdminGate>

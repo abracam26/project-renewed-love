@@ -6,7 +6,6 @@ import {
   CreditCard,
   Database,
   FileText,
-  FileUp,
   Flag,
   MessageSquare,
   Loader2,
@@ -153,8 +152,8 @@ function PainelAdmin({ token }: { token: string }) {
               to="/admin/questoes"
               className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-gold hover:bg-primary/90"
             >
-              <FileUp className="size-4" />
-              Importar e gerenciar questões
+              <Database className="size-4" />
+              Gerenciar questões
             </Link>
           </div>
         </div>
