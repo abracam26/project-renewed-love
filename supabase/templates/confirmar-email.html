@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="x-apple-disable-message-reformatting">
+<title>Confirme seu endereço de e-mail</title>
+</head>
+<body style="margin:0;padding:0;background-color:#E6EDF1;">
+<div style="display:none;max-height:0;max-width:0;overflow:hidden;opacity:0;mso-hide:all;">Confirme seu e-mail para acessar a plataforma de simulados da ABRACAM.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#E6EDF1" style="background-color:#E6EDF1;">
+  <tr>
+    <td align="center" style="padding:24px 12px;">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;background-color:#FFFFFF;">
+        <tr>
+          <td style="padding:0;">
+            <img src="https://simulador.abracam.com/email/abracam-cabecalho.png" width="600" alt="ABRACAM – Associação Brasileira de Câmbio" style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;">
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px 36px 8px;font-family:Arial,Helvetica,sans-serif;color:#0F2F3D;">
+            <h1 style="margin:0 0 20px;font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;font-weight:bold;color:#0F2F3D;">Confirme seu endereço de e-mail</h1>
+            <p style="margin:0 0 14px;font-size:15px;line-height:23px;color:#0F2F3D;">{{ if .Data.full_name }}Prezado(a) {{ .Data.full_name }},{{ else }}Prezado(a),{{ end }}</p>
+            <p style="margin:0;font-size:15px;line-height:23px;color:#0F2F3D;">Recebemos uma solicitação para cadastro na plataforma de simulados. Para continuar com o processo, clique no botão abaixo:</p>
+          </td>
+        </tr>
+        <tr>
+          <td align="center" style="padding:24px 36px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td align="center" bgcolor="#0F2F3D" style="border-radius:6px;background-color:#0F2F3D;">
+                  <a href="{{ .ConfirmationURL }}" target="_blank" style="display:inline-block;padding:14px 34px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:20px;font-weight:bold;color:#FFFFFF;text-decoration:none;border-radius:6px;">Confirme seu e-mail</a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 36px 30px;font-family:Arial,Helvetica,sans-serif;">
+            <p style="margin:0 0 6px;font-size:13px;line-height:20px;color:#4A6472;">Se o botão não funcionar, copie e cole o link no seu navegador:</p>
+            <p style="margin:0 0 22px;font-size:13px;line-height:20px;word-break:break-all;"><a href="{{ .ConfirmationURL }}" target="_blank" style="color:#0B6E9E;text-decoration:underline;">{{ .ConfirmationURL }}</a></p>
+            <p style="margin:0;font-size:13px;line-height:20px;color:#4A6472;">Caso você não tenha solicitado este cadastro, pode ignorar este e-mail com segurança.</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="height:6px;line-height:6px;font-size:0;background-color:#E6EDF1;">&nbsp;</td>
+        </tr>
+        <tr>
+          <td bgcolor="#0F2F3D" style="padding:24px 24px 18px;background-color:#0F2F3D;font-family:Arial,Helvetica,sans-serif;">
+            <div style="display:inline-block;width:100%;max-width:270px;vertical-align:top;padding:0 12px 12px;box-sizing:border-box;">
+              <p style="margin:0 0 6px;font-size:14px;line-height:20px;font-weight:bold;color:#FFFFFF;">Associação Brasileira de Câmbio</p>
+              <p style="margin:0;font-size:13px;line-height:20px;color:#C9D7DE;">Avenida Paulista, 2444 – 1º Andar, CJ. 12<br>Bela Vista – São Paulo/SP<br>CEP: 01310-300</p>
+            </div><div style="display:inline-block;width:100%;max-width:270px;vertical-align:top;padding:0 12px 12px;box-sizing:border-box;">
+              <p style="margin:0 0 6px;font-size:14px;line-height:20px;font-weight:bold;color:#FFFFFF;">Dúvidas? Fale com a ABRACAM!</p>
+              <p style="margin:0;font-size:13px;line-height:20px;color:#C9D7DE;">(11) 3113-4040<br><a href="mailto:abracam@abracam.com" style="color:#FFFFFF;text-decoration:none;">abracam@abracam.com</a><br><a href="https://www.abracam.com" target="_blank" style="color:#FFFFFF;text-decoration:none;">www.abracam.com</a></p>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td bgcolor="#E7F0F6" align="center" style="padding:16px 20px;background-color:#E7F0F6;font-family:Arial,Helvetica,sans-serif;">
+            <p style="margin:0 0 6px;font-size:13px;line-height:19px;color:#0F2F3D;">Acompanhe a ABRACAM nas redes sociais e fique sabendo das novidades!</p>
+            <p style="margin:0;font-size:13px;line-height:19px;"><a href="https://www.instagram.com/abracam/" target="_blank" style="color:#0F2F3D;font-weight:bold;text-decoration:none;">Instagram</a> &nbsp;·&nbsp; <a href="https://www.linkedin.com/company/abracamcambio/" target="_blank" style="color:#0F2F3D;font-weight:bold;text-decoration:none;">LinkedIn</a> &nbsp;·&nbsp; <a href="https://www.facebook.com/ABRACAM.cambio/" target="_blank" style="color:#0F2F3D;font-weight:bold;text-decoration:none;">Facebook</a> &nbsp;·&nbsp; <a href="https://www.youtube.com/channel/UCz6T6uJ9rG5Ms0N0cXg8SNQ" target="_blank" style="color:#0F2F3D;font-weight:bold;text-decoration:none;">YouTube</a></p>
+          </td>
+        </tr>
+        <tr>
+          <td align="center" style="padding:16px 20px 18px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#6B8290;">
+            © ABRACAM. Todos os direitos reservados.
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>
