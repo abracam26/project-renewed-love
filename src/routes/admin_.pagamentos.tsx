@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, CreditCard } from "lucide-react";
 import { AdminGate } from "@/components/AdminGate";
 import { ConfigPagamento } from "@/components/ConfigPagamento";
+import { GestorAssociados } from "@/components/GestorAssociados";
 import { GestorPedidos } from "@/components/GestorPedidos";
 import { GestorPlanos } from "@/components/GestorPlanos";
 
@@ -13,7 +14,7 @@ export const Route = createFileRoute("/admin_/pagamentos")({
       {
         name: "description",
         content:
-          "Planos à venda, forma de pagamento e pedidos dos alunos, com confirmação de pagamento e liberação do acesso.",
+          "Planos à venda, associados ABRACAM, forma de pagamento e pedidos dos alunos, com confirmação de pagamento e liberação do acesso.",
       },
     ],
   }),
@@ -41,6 +42,7 @@ function AdminPagamentos() {
           <div className="space-y-5">
             <GestorPedidos token={token} />
             <GestorPlanos token={token} />
+            <GestorAssociados token={token} />
             <ConfigPagamento token={token} />
           </div>
         )}

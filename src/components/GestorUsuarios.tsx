@@ -3,6 +3,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import {
+  BadgeCheck,
   CalendarPlus,
   ChevronLeft,
   ChevronRight,
@@ -18,6 +19,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { toast } from "sonner";
+import { definirAssociadoUsuario, listarAssociados } from "@/lib/associados.functions";
 import { mensagemErro } from "@/lib/erros";
 import {
   Dialog,
@@ -400,6 +402,7 @@ function DetalheUsuario({ token, userId }: { token: string; userId: string }) {
       )}
 
       <DadosCadastro token={token} usuario={u} />
+      <VinculoAssociado key={u.associado?.id ?? "nenhum"} token={token} usuario={u} />
       {/* Recomeça o formulário sempre que o acesso gravado mudar (pagamento, venda, ajuste) */}
       <PlanoAcesso key={`${u.plano}|${u.planoValidade ?? ""}`} token={token} usuario={u} />
       <PedidosPagamentos token={token} usuario={u} />
@@ -575,6 +578,158 @@ function DadosCadastro({ token, usuario: u }: { token: string; usuario: Usuario 
             </button>
           </div>
         </form>
+      )}
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------
+// Associado ABRACAM: situação do vínculo e vínculo manual pelo admin
+// ---------------------------------------------------------------------
+const ORIGEM_ASSOCIADO: Record<string, string> = {
+  cadastro: "validado no cadastro (CNPJ + e-mail da instituição)",
+  perfil: "validado pelo aluno no Perfil (CNPJ + e-mail da instituição)",
+  admin: "vinculado manualmente pelo admin",
+};
+
+function VinculoAssociado({ token, usuario: u }: { token: string; usuario: Usuario }) {
+  const listar = useServerFn(listarAssociados);
+  const definir = useServerFn(definirAssociadoUsuario);
+  const queryClient = useQueryClient();
+  const [alterando, setAlterando] = useState(false);
+  const [escolhido, setEscolhido] = useState(u.associado?.id ?? "");
+
+  const lista = useQuery({
+    queryKey: ["admin", "associados"],
+    queryFn: () => listar({ data: { token } }),
+    enabled: alterando,
+  });
+
+  const mut = useMutation({
+    mutationFn: (associadoId: string | null) =>
+      definir({ data: { token, userId: u.id, associadoId } }),
+    onSuccess: async (_r, associadoId) => {
+      toast.success(
+        associadoId
+          ? "Aluno vinculado como associado. O preço de associado vale nos próximos pedidos."
+          : "Vínculo de associado removido. Os próximos pedidos saem com o preço normal.",
+      );
+      setAlterando(false);
+      await queryClient.invalidateQueries({ queryKey: ["admin", "usuario", u.id] });
+      await queryClient.invalidateQueries({ queryKey: ["admin", "associados"] });
+    },
+    onError: (e) => toast.error(mensagemErro(e)),
+  });
+
+  const a = u.associado;
+  return (
+    <section className="rounded-lg border border-border p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="flex items-center gap-1.5 text-sm font-semibold text-card-foreground">
+          <BadgeCheck className="size-4 text-primary" /> Associado ABRACAM
+        </h3>
+        {!alterando && (
+          <button
+            type="button"
+            onClick={() => setAlterando(true)}
+            className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+          >
+            <Pencil className="size-3.5" /> {a ? "Alterar" : "Vincular"}
+          </button>
+        )}
+      </div>
+      {a ? (
+        <div className="mt-2 text-sm text-card-foreground">
+          <p>
+            <strong>{a.nome}</strong>
+            {!a.ativo && (
+              <span className="ml-2 rounded bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                Instituição desativada: sem desconto
+              </span>
+            )}
+          </p>
+          <p className="text-[11px] text-muted-foreground">
+            {ORIGEM_ASSOCIADO[a.origem ?? ""] ?? "vinculado"}
+            {a.em ? ` em ${dataHora(a.em)}` : ""}.
+          </p>
+        </div>
+      ) : (
+        <p className="mt-2 text-xs text-muted-foreground">
+          Não é associado. Paga o preço normal dos planos.
+        </p>
+      )}
+
+      {alterando && (
+        <div className="mt-3 space-y-2">
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="block min-w-56 flex-1 text-xs text-muted-foreground">
+              Instituição associada
+              <select
+                value={escolhido}
+                onChange={(e) => setEscolhido(e.target.value)}
+                disabled={lista.isPending}
+                className={`mt-1 ${inputClass} disabled:opacity-50`}
+              >
+                <option value="">
+                  {lista.isPending ? "Carregando..." : "Escolha a instituição"}
+                </option>
+                {(lista.data?.associados ?? []).map((x) => (
+                  <option key={x.id} value={x.id}>
+                    {`${x.nome} — ${formatarCnpj(x.cnpj)}${x.ativo ? "" : " (desativada)"}`}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              disabled={!escolhido || escolhido === a?.id || mut.isPending}
+              onClick={() => mut.mutate(escolhido)}
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-gold disabled:opacity-50"
+            >
+              {mut.isPending ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Save className="size-3.5" />
+              )}
+              Vincular
+            </button>
+            {a && (
+              <button
+                type="button"
+                disabled={mut.isPending}
+                onClick={() => {
+                  if (confirm(`Remover o vínculo de associado (${a.nome}) deste aluno?`)) {
+                    mut.mutate(null);
+                  }
+                }}
+                className="rounded-md border border-destructive/50 px-3 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
+              >
+                Remover vínculo
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setAlterando(false);
+                setEscolhido(a?.id ?? "");
+              }}
+              className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-card-foreground hover:bg-accent"
+            >
+              Cancelar
+            </button>
+          </div>
+          {lista.isError && <p className="text-xs text-destructive">{mensagemErro(lista.error)}</p>}
+          {lista.isSuccess && lista.data.associados.length === 0 && (
+            <p className="text-xs text-destructive">
+              Nenhuma instituição cadastrada. Cadastre em Planos e pagamentos &gt; Associados
+              ABRACAM.
+            </p>
+          )}
+          <p className="text-[11px] text-muted-foreground">
+            O vínculo manual não depende do e-mail do aluno (use para casos que a ABRACAM já
+            conferiu). Vale para os próximos pedidos; pedidos já feitos não mudam.
+          </p>
+        </div>
       )}
     </section>
   );
@@ -1153,6 +1308,9 @@ function RegistrarVenda({
   });
   const planos = planosQuery.data?.planos ?? [];
   const plano = planos.find((p) => p.id === planoId);
+  // Aluno associado (instituição ativa) e plano com preço de associado
+  const precoAssociado =
+    u.associado?.ativo && plano?.precoAssociadoCentavos ? plano.precoAssociadoCentavos : null;
 
   const valorCentavos = reaisParaCentavos(valor);
   const valorOk = valorCentavos !== null && valorCentavos > 0;
@@ -1252,9 +1410,20 @@ function RegistrarVenda({
     setPlanoId(id);
     setAceitarDiferente(false);
     const escolhido = planos.find((p) => p.id === id);
+    const assoc =
+      u.associado?.ativo && escolhido?.precoAssociadoCentavos
+        ? escolhido.precoAssociadoCentavos
+        : null;
     setValor(
-      escolhido && escolhido.precoCentavos > 0 ? centavosParaTexto(escolhido.precoCentavos) : "",
+      assoc
+        ? centavosParaTexto(assoc)
+        : escolhido && escolhido.precoCentavos > 0
+          ? centavosParaTexto(escolhido.precoCentavos)
+          : "",
     );
+    if (assoc && u.associado && !observacao.trim()) {
+      setObservacao(`Preço de associado ABRACAM (${u.associado.nome})`);
+    }
   }
 
   const podeConfirmar =
@@ -1385,10 +1554,16 @@ function RegistrarVenda({
             {menor ? "menor" : "maior"} que o preço do plano {plano.nome} (
             <strong>{formatarReais(plano.precoCentavos)}</strong>).
           </p>
-          {muitoDiferente && (
-            <p className="mt-1 font-medium text-destructive">
-              A diferença é grande: confira se o valor foi digitado certo.
+          {precoAssociado !== null && valorCentavos === precoAssociado ? (
+            <p className="mt-1">
+              É o preço de associado ABRACAM deste plano ({u.associado?.nome}). Confirme abaixo.
             </p>
+          ) : (
+            muitoDiferente && (
+              <p className="mt-1 font-medium text-destructive">
+                A diferença é grande: confira se o valor foi digitado certo.
+              </p>
+            )
           )}
           <label className="mt-2 flex items-center gap-2 font-medium">
             <input

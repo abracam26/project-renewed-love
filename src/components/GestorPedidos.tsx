@@ -452,6 +452,12 @@ function CartaoPedido({ pedido: p, onAcao }: { pedido: PedidoAdmin; onAcao: (a: 
         </Info>
         <Info rotulo="Valor">
           <span className="font-semibold">{formatarReais(p.valorTotal)}</span>
+          {p.descontoAssociado && (
+            <span className="block text-[11px] text-success">
+              Preço de associado
+              {p.valorSemDesconto ? ` (normal: ${formatarReais(p.valorSemDesconto)})` : ""}
+            </span>
+          )}
         </Info>
         <Info rotulo="Forma escolhida">{nomeMetodo(p.metodo)}</Info>
         <Info rotulo="Pedido em">{dataHora(p.criadoEm)}</Info>

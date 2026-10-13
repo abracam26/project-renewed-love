@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      associados: {
+        Row: {
+          ativo: boolean
+          cnpj: string
+          created_at: string
+          created_by: string | null
+          dominios: string[]
+          id: string
+          nome: string
+          updated_at: string
+          vale_filiais: boolean
+        }
+        Insert: {
+          ativo?: boolean
+          cnpj: string
+          created_at?: string
+          created_by?: string | null
+          dominios: string[]
+          id?: string
+          nome: string
+          updated_at?: string
+          vale_filiais?: boolean
+        }
+        Update: {
+          ativo?: boolean
+          cnpj?: string
+          created_at?: string
+          created_by?: string | null
+          dominios?: string[]
+          id?: string
+          nome?: string
+          updated_at?: string
+          vale_filiais?: boolean
+        }
+        Relationships: []
+      }
       chamados_suporte: {
         Row: {
           categoria: string
@@ -519,6 +555,7 @@ export type Database = {
       pedidos: {
         Row: {
           acesso_removido: boolean | null
+          associado_id: string | null
           cancelado_em: string | null
           cancelado_por: string | null
           chave_venda: string | null
@@ -530,6 +567,7 @@ export type Database = {
           comprador_tipo: string
           created_at: string
           criado_por: string | null
+          desconto_associado: boolean
           dias_concedidos: number | null
           estornado_em: string | null
           estornado_por: string | null
@@ -557,10 +595,12 @@ export type Database = {
           user_id: string | null
           validade_anterior: string | null
           validade_concedida: string | null
+          valor_sem_desconto: number | null
           valor_total: number
         }
         Insert: {
           acesso_removido?: boolean | null
+          associado_id?: string | null
           cancelado_em?: string | null
           cancelado_por?: string | null
           chave_venda?: string | null
@@ -572,6 +612,7 @@ export type Database = {
           comprador_tipo: string
           created_at?: string
           criado_por?: string | null
+          desconto_associado?: boolean
           dias_concedidos?: number | null
           estornado_em?: string | null
           estornado_por?: string | null
@@ -599,10 +640,12 @@ export type Database = {
           user_id?: string | null
           validade_anterior?: string | null
           validade_concedida?: string | null
+          valor_sem_desconto?: number | null
           valor_total: number
         }
         Update: {
           acesso_removido?: boolean | null
+          associado_id?: string | null
           cancelado_em?: string | null
           cancelado_por?: string | null
           chave_venda?: string | null
@@ -614,6 +657,7 @@ export type Database = {
           comprador_tipo?: string
           created_at?: string
           criado_por?: string | null
+          desconto_associado?: boolean
           dias_concedidos?: number | null
           estornado_em?: string | null
           estornado_por?: string | null
@@ -641,9 +685,17 @@ export type Database = {
           user_id?: string | null
           validade_anterior?: string | null
           validade_concedida?: string | null
+          valor_sem_desconto?: number | null
           valor_total?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "pedidos_associado_id_fkey"
+            columns: ["associado_id"]
+            isOneToOne: false
+            referencedRelation: "associados"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "pedidos_cliente_id_fkey"
             columns: ["cliente_id"]
@@ -674,6 +726,7 @@ export type Database = {
           nome: string
           ordem: number
           parcelas_max: number
+          preco_associado_centavos: number | null
           preco_centavos: number
           tipo_acesso: string
           updated_at: string
@@ -691,6 +744,7 @@ export type Database = {
           nome: string
           ordem?: number
           parcelas_max?: number
+          preco_associado_centavos?: number | null
           preco_centavos?: number
           tipo_acesso: string
           updated_at?: string
@@ -708,6 +762,7 @@ export type Database = {
           nome?: string
           ordem?: number
           parcelas_max?: number
+          preco_associado_centavos?: number | null
           preco_centavos?: number
           tipo_acesso?: string
           updated_at?: string
@@ -716,6 +771,9 @@ export type Database = {
       }
       profiles: {
         Row: {
+          associado_em: string | null
+          associado_id: string | null
+          associado_origem: string | null
           avatar_url: string | null
           cadastro_completo_em: string | null
           cnpj: string | null
@@ -735,6 +793,9 @@ export type Database = {
           username: string | null
         }
         Insert: {
+          associado_em?: string | null
+          associado_id?: string | null
+          associado_origem?: string | null
           avatar_url?: string | null
           cadastro_completo_em?: string | null
           cnpj?: string | null
@@ -754,6 +815,9 @@ export type Database = {
           username?: string | null
         }
         Update: {
+          associado_em?: string | null
+          associado_id?: string | null
+          associado_origem?: string | null
           avatar_url?: string | null
           cadastro_completo_em?: string | null
           cnpj?: string | null
@@ -772,7 +836,15 @@ export type Database = {
           updated_at?: string
           username?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_associado_id_fkey"
+            columns: ["associado_id"]
+            isOneToOne: false
+            referencedRelation: "associados"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       questoes: {
         Row: {
@@ -1240,6 +1312,14 @@ export type Database = {
           ordem: number
           questao_id: string
           tema: number
+        }[]
+      }
+      verificar_associado: {
+        Args: { p_cnpj: string; p_email: string }
+        Returns: {
+          associado_id: string
+          motivo: string
+          nome: string
         }[]
       }
     }

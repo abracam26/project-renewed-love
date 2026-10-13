@@ -35,7 +35,7 @@ import { cn } from "@/lib/utils";
  */
 
 const inputClass =
-  "w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm text-card-foreground";
+  "w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm text-foreground";
 
 const MAX_BENEFICIOS = 12;
 const PRECO_MAXIMO = 100000000;
@@ -50,6 +50,8 @@ type Form = {
   duracaoQuantidade: string;
   duracaoUnidade: UnidadeDuracao;
   preco: string;
+  /** Preço para associados ABRACAM (vazio = sem preço especial) */
+  precoAssociado: string;
   descricao: string;
   beneficios: string;
   formasPagamento: FormaPagamento[];
@@ -67,6 +69,7 @@ function formNovo(ordem: number): Form {
     duracaoQuantidade: "1",
     duracaoUnidade: "meses",
     preco: "",
+    precoAssociado: "",
     descricao: "",
     beneficios: "",
     formasPagamento: [...FORMAS_PAGAMENTO],
@@ -85,6 +88,8 @@ function formDoPlano(p: PlanoAdmin): Form {
     duracaoQuantidade: String(p.duracaoQuantidade),
     duracaoUnidade: p.duracaoUnidade,
     preco: p.precoCentavos > 0 ? centavosParaTexto(p.precoCentavos) : "",
+    precoAssociado:
+      p.precoAssociadoCentavos !== null ? centavosParaTexto(p.precoAssociadoCentavos) : "",
     descricao: p.descricao,
     beneficios: p.beneficios.join("\n"),
     formasPagamento: FORMAS_PAGAMENTO.filter((f) => p.formasPagamento.includes(f)),
@@ -202,6 +207,12 @@ export function GestorPlanos({ token }: { token: string }) {
                     ) : (
                       <strong className="text-destructive">Sem preço</strong>
                     )}
+                    {p.precoAssociadoCentavos !== null && (
+                      <>
+                        {" · "}
+                        Associados: <strong>{formatarReais(p.precoAssociadoCentavos)}</strong>
+                      </>
+                    )}
                     {" · "}
                     {descreverDuracao(p.duracaoQuantidade, p.duracaoUnidade)}
                     {" · "}
@@ -317,6 +328,16 @@ function EditorPlano({
         : null;
   const semPreco = precoCentavos === 0;
 
+  const precoAssocTexto = f.precoAssociado.trim();
+  const precoAssociadoCentavos = precoAssocTexto ? reaisParaCentavos(precoAssocTexto) : null;
+  const erroPrecoAssociado = !precoAssocTexto
+    ? null
+    : precoAssociadoCentavos === null || precoAssociadoCentavos <= 0
+      ? "Preço para associados inválido. Escreva só o valor em reais, por exemplo 39,90."
+      : precoCentavos !== null && precoAssociadoCentavos > precoCentavos
+        ? "O preço para associados não pode ser maior que o preço normal."
+        : null;
+
   const beneficios = f.beneficios
     .split("\n")
     .map((b) => b.trim())
@@ -343,7 +364,14 @@ function EditorPlano({
       : null;
 
   const erro =
-    erroNome ?? erroDuracao ?? erroPreco ?? erroBeneficios ?? erroFormas ?? erroOrdem ?? erroAtivo;
+    erroNome ??
+    erroDuracao ??
+    erroPreco ??
+    erroPrecoAssociado ??
+    erroBeneficios ??
+    erroFormas ??
+    erroOrdem ??
+    erroAtivo;
 
   const mut = useMutation({
     mutationFn: () =>
@@ -358,6 +386,7 @@ function EditorPlano({
           duracaoQuantidade: quantidade,
           duracaoUnidade: f.duracaoUnidade,
           precoCentavos: precoCentavos ?? 0,
+          precoAssociadoCentavos: precoAssocTexto ? precoAssociadoCentavos : null,
           formasPagamento: f.formasPagamento,
           parcelasMax: f.parcelasMax,
           destaque: f.destaque,
@@ -473,34 +502,61 @@ function EditorPlano({
         </div>
       </div>
 
-      <label className="block text-xs text-muted-foreground">
-        Preço (em reais)
-        <span className="mt-1 flex items-center gap-2">
-          <span className="text-sm text-card-foreground">R$</span>
-          <input
-            value={f.preco}
-            onChange={(e) => set("preco", e.target.value)}
-            inputMode="decimal"
-            placeholder="49,90"
-            className={`${inputClass} max-w-40`}
-          />
-        </span>
-        {erroPreco ? (
-          <span className="mt-1 block text-destructive">{erroPreco}</span>
-        ) : semPreco ? (
-          <span className="mt-1 block text-[11px]">
-            Sem preço, o plano fica salvo mas não pode ser ativado.
+      <div className="grid gap-4 sm:grid-cols-2">
+        <label className="block text-xs text-muted-foreground">
+          Preço (em reais)
+          <span className="mt-1 flex items-center gap-2">
+            <span className="text-sm text-card-foreground">R$</span>
+            <input
+              value={f.preco}
+              onChange={(e) => set("preco", e.target.value)}
+              inputMode="decimal"
+              placeholder="49,90"
+              className={`${inputClass} max-w-40`}
+            />
           </span>
-        ) : (
-          <span className="mt-1 block text-[11px]">
-            O aluno verá:{" "}
-            {erroDuracao
-              ? formatarReais(precoCentavos)
-              : `${formatarReais(precoCentavos)} ${periodoDoPlano(quantidade, f.duracaoUnidade)}`}
-            . Vale para novos pedidos.
+          {erroPreco ? (
+            <span className="mt-1 block text-destructive">{erroPreco}</span>
+          ) : semPreco ? (
+            <span className="mt-1 block text-[11px]">
+              Sem preço, o plano fica salvo mas não pode ser ativado.
+            </span>
+          ) : (
+            <span className="mt-1 block text-[11px]">
+              O aluno verá:{" "}
+              {erroDuracao
+                ? formatarReais(precoCentavos)
+                : `${formatarReais(precoCentavos)} ${periodoDoPlano(quantidade, f.duracaoUnidade)}`}
+              . Vale para novos pedidos.
+            </span>
+          )}
+        </label>
+
+        <label className="block text-xs text-muted-foreground">
+          Preço para associados ABRACAM (opcional)
+          <span className="mt-1 flex items-center gap-2">
+            <span className="text-sm text-card-foreground">R$</span>
+            <input
+              value={f.precoAssociado}
+              onChange={(e) => set("precoAssociado", e.target.value)}
+              inputMode="decimal"
+              placeholder="39,90"
+              aria-label="Preço para associados (em reais)"
+              className={`${inputClass} max-w-40`}
+            />
           </span>
-        )}
-      </label>
+          {erroPrecoAssociado ? (
+            <span className="mt-1 block text-destructive">{erroPrecoAssociado}</span>
+          ) : (
+            <span className="mt-1 block text-[11px]">
+              {precoAssociadoCentavos !== null && precoCentavos
+                ? `Associado validado (CNPJ + e-mail da instituição) paga ${formatarReais(precoAssociadoCentavos)}, ${Math.round((1 - precoAssociadoCentavos / precoCentavos) * 100)}% a menos. `
+                : "Vazio: associados pagam o preço normal. "}
+              A lista de associados fica em “Associados ABRACAM”, nesta página.
+            </span>
+          )}
+        </label>
+      </div>
 
       <label className="block text-xs text-muted-foreground">
         Descrição curta (opcional, {f.descricao.length}/300)

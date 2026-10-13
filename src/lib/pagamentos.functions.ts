@@ -8,6 +8,7 @@ import {
   type SupabaseAdmin,
 } from "@/lib/auth-servidor";
 import type { Json } from "@/integrations/supabase/types";
+import { associadoVigente } from "@/lib/associados.functions";
 import {
   FILTROS_PEDIDO,
   FORMAS_MANUAIS,
@@ -158,10 +159,12 @@ type PedidoLinha = {
   comprador_documento: string;
   comprador_tipo: string;
   user_id: string | null;
+  desconto_associado: boolean;
+  valor_sem_desconto: number | null;
 };
 
 const CAMPOS_PEDIDO =
-  "id, codigo, status, valor_total, plano_nome, plano_tipo_acesso, plano_duracao_quantidade, plano_duracao_unidade, metodo_pagamento, gateway, origem, teste, created_at, expira_em, liberado_em, plano_id, plano_anterior, plano_nome_anterior, plano_concedido, chave_venda, validade_anterior, validade_concedida, dias_concedidos, cancelado_em, motivo_cancelamento, estornado_em, motivo_estorno, acesso_removido, comprador_nome, comprador_email, comprador_documento, comprador_tipo, user_id";
+  "id, codigo, status, valor_total, plano_nome, plano_tipo_acesso, plano_duracao_quantidade, plano_duracao_unidade, metodo_pagamento, gateway, origem, teste, created_at, expira_em, liberado_em, plano_id, plano_anterior, plano_nome_anterior, plano_concedido, chave_venda, validade_anterior, validade_concedida, dias_concedidos, cancelado_em, motivo_cancelamento, estornado_em, motivo_estorno, acesso_removido, comprador_nome, comprador_email, comprador_documento, comprador_tipo, user_id, desconto_associado, valor_sem_desconto";
 
 function pedidoBasico(p: PedidoLinha) {
   return {
@@ -182,6 +185,9 @@ function pedidoBasico(p: PedidoLinha) {
     canceladoEm: p.cancelado_em,
     motivoCancelamento: p.motivo_cancelamento,
     compradorTipo: p.comprador_tipo as "cpf" | "cnpj",
+    /** Pedido com preço de associado ABRACAM (valorSemDesconto = preço normal na época) */
+    descontoAssociado: p.desconto_associado,
+    valorSemDesconto: p.valor_sem_desconto,
   };
 }
 
@@ -197,6 +203,8 @@ export const planosParaAluno = createServerFn({ method: "POST" })
       p_user: user.id,
     });
     erroRpc(eExp);
+    // Associado ABRACAM: confere o vínculo antes de mostrar os preços
+    const associado = await associadoVigente(supabaseAdmin, user.id, user.email);
 
     const [
       { data: perfil, error: ePerfil },
@@ -216,7 +224,7 @@ export const planosParaAluno = createServerFn({ method: "POST" })
       supabaseAdmin
         .from("planos")
         .select(
-          "id, nome, descricao, beneficios, tipo_acesso, duracao_quantidade, duracao_unidade, preco_centavos, destaque, ordem",
+          "id, nome, descricao, beneficios, tipo_acesso, duracao_quantidade, duracao_unidade, preco_centavos, preco_associado_centavos, destaque, ordem",
         )
         .eq("ativo", true)
         .order("ordem")
@@ -244,17 +252,27 @@ export const planosParaAluno = createServerFn({ method: "POST" })
     }
 
     return {
-      planos: (planos ?? []).map((p) => ({
-        id: p.id,
-        nome: p.nome,
-        descricao: p.descricao,
-        beneficios: p.beneficios,
-        tipoAcesso: p.tipo_acesso,
-        duracaoQuantidade: p.duracao_quantidade,
-        duracaoUnidade: p.duracao_unidade as "dias" | "meses",
-        precoCentavos: p.preco_centavos,
-        destaque: p.destaque,
-      })),
+      planos: (planos ?? []).map((p) => {
+        const comDesconto = associado !== null && p.preco_associado_centavos !== null;
+        return {
+          id: p.id,
+          nome: p.nome,
+          descricao: p.descricao,
+          beneficios: p.beneficios,
+          tipoAcesso: p.tipo_acesso,
+          duracaoQuantidade: p.duracao_quantidade,
+          duracaoUnidade: p.duracao_unidade as "dias" | "meses",
+          /** O que este aluno paga (preço de associado, quando vale) */
+          precoCentavos:
+            comDesconto && p.preco_associado_centavos !== null
+              ? p.preco_associado_centavos
+              : p.preco_centavos,
+          precoNormalCentavos: p.preco_centavos,
+          precoAssociadoCentavos: p.preco_associado_centavos,
+          descontoAssociado: comDesconto,
+          destaque: p.destaque,
+        };
+      }),
       atual: {
         plano: perfil?.plano ?? "gratis",
         planoNome: perfil?.plano_nome ?? null,
@@ -264,6 +282,8 @@ export const planosParaAluno = createServerFn({ method: "POST" })
         cadastroCompleto: Boolean(perfil?.cadastro_completo_em && perfil?.cpf),
         isAdmin: admin,
         gratuidadeUsada,
+        /** Instituição associada (desconto valendo), ou null */
+        associado: associado ? { nome: associado.nome } : null,
       },
       comprador: {
         cpf: mascararDocumento(perfil?.cpf),
@@ -310,6 +330,8 @@ export const criarPedido = createServerFn({ method: "POST" })
     if (!config.formasManual.includes(data.metodo)) {
       throw new Error("Esta forma de pagamento não está disponível no momento.");
     }
+    // O banco aplica o preço de associado pelo vínculo do perfil; aqui ele é conferido antes
+    await associadoVigente(supabaseAdmin, user.id, user.email);
     const { data: r, error } = await supabaseAdmin.rpc("criar_pedido", {
       p_user: user.id,
       p_plano: data.planoId,
@@ -375,6 +397,7 @@ export const listarPlanosAdmin = createServerFn({ method: "POST" })
         duracaoQuantidade: p.duracao_quantidade,
         duracaoUnidade: p.duracao_unidade as "dias" | "meses",
         precoCentavos: p.preco_centavos,
+        precoAssociadoCentavos: p.preco_associado_centavos,
         formasPagamento: p.formas_pagamento as (typeof FORMAS_PAGAMENTO)[number][],
         parcelasMax: p.parcelas_max,
         destaque: p.destaque,
@@ -403,6 +426,13 @@ const planoSchema = z
     duracaoQuantidade: z.number().int("Duração inválida.").min(1, "Duração inválida."),
     duracaoUnidade: z.enum(UNIDADES_DURACAO),
     precoCentavos: z.number().int().min(0).max(100000000, "Preço muito alto."),
+    /** Preço para associados ABRACAM (null = sem preço especial) */
+    precoAssociadoCentavos: z
+      .number()
+      .int("Preço para associados inválido.")
+      .positive("O preço para associados precisa ser maior que zero.")
+      .nullable()
+      .default(null),
     formasPagamento: z
       .array(z.enum(FORMAS_PAGAMENTO))
       .min(1, "Marque pelo menos uma forma de pagamento."),
@@ -427,6 +457,13 @@ const planoSchema = z
         message: "Defina o preço antes de ativar o plano.",
       });
     }
+    if (v.precoAssociadoCentavos !== null && v.precoAssociadoCentavos > v.precoCentavos) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["precoAssociadoCentavos"],
+        message: "O preço para associados não pode ser maior que o preço normal.",
+      });
+    }
   });
 
 export const salvarPlano = createServerFn({ method: "POST" })
@@ -441,6 +478,7 @@ export const salvarPlano = createServerFn({ method: "POST" })
       duracao_quantidade: data.duracaoQuantidade,
       duracao_unidade: data.duracaoUnidade,
       preco_centavos: data.precoCentavos,
+      preco_associado_centavos: data.precoAssociadoCentavos,
       formas_pagamento: [...new Set(data.formasPagamento)],
       parcelas_max: data.parcelasMax,
       destaque: data.destaque,

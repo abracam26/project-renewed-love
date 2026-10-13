@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
+  BadgeCheck,
   Building2,
   CalendarDays,
   CreditCard,
@@ -9,13 +10,16 @@ import {
   KeyRound,
   Loader2,
   Mail,
+  TriangleAlert,
   Trophy,
   User,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useToken } from "@/hooks/use-token";
-import { formatarCnpj } from "@/lib/cnpj";
+import { emailPessoal } from "@/lib/associados";
+import { validarMeuAssociado } from "@/lib/associados.functions";
+import { cnpjValido, formatarCnpj, limparCnpj } from "@/lib/cnpj";
 import { mascararCpf } from "@/lib/cpf";
 import { mensagemErro } from "@/lib/erros";
 import { CONTROLADOR } from "@/lib/juridico";
@@ -103,6 +107,14 @@ function Perfil() {
     },
     onError: (e) => toast.error(mensagemErro(e)),
   });
+
+  // Vindo de "Validar no Perfil" (página Planos): rola até o cartão de associado
+  const carregado = query.isSuccess;
+  useEffect(() => {
+    if (carregado && window.location.hash === "#associado") {
+      document.getElementById("associado")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [carregado]);
 
   if (loading || query.isPending) {
     return (
@@ -310,7 +322,110 @@ function Perfil() {
             </p>
           )}
         </section>
+
+        <CartaoAssociado
+          token={token as string}
+          associado={p.associado}
+          email={p.email}
+          cnpjCadastro={p.cnpj}
+        />
       </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------
+// Associado ABRACAM: situação e validação do vínculo (CNPJ + e-mail da conta)
+// ---------------------------------------------------------------------
+function CartaoAssociado({
+  token,
+  associado,
+  email,
+  cnpjCadastro,
+}: {
+  token: string;
+  associado: { nome: string } | null;
+  email: string | null;
+  cnpjCadastro: string | null;
+}) {
+  const validar = useServerFn(validarMeuAssociado);
+  const queryClient = useQueryClient();
+  const [cnpj, setCnpj] = useState(cnpjCadastro ? formatarCnpj(cnpjCadastro) : "");
+  const digitos = limparCnpj(cnpj);
+  const cnpjInvalido = digitos.length === 14 && !cnpjValido(cnpj);
+  const pessoal = emailPessoal(email);
+
+  const mut = useMutation({
+    mutationFn: () => validar({ data: { token, cnpj } }),
+    onSuccess: async (r) => {
+      toast.success(`Vínculo validado: ${r.nome}. O desconto de associado já vale nos planos.`);
+      await queryClient.invalidateQueries({ queryKey: ["meu-perfil"] });
+      await queryClient.invalidateQueries({ queryKey: ["planos-aluno"] });
+    },
+    onError: (e) => toast.error(mensagemErro(e)),
+  });
+
+  return (
+    <section id="associado" className="panel scroll-mt-20 p-6 lg:col-span-2">
+      <h2 className="flex items-center gap-2 text-lg font-semibold text-card-foreground">
+        <BadgeCheck className="size-4 text-primary" />
+        Associado ABRACAM
+      </h2>
+      {associado ? (
+        <div className="mt-4 rounded-md border border-success/40 bg-success/10 px-4 py-4">
+          <p className="text-sm font-semibold text-success">Associado(a): {associado.nome}</p>
+          <p className="mt-1 text-xs text-card-foreground">
+            Os planos com preço de associado já aparecem com o desconto na página Planos.
+          </p>
+        </div>
+      ) : (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            mut.mutate();
+          }}
+          className="mt-4 space-y-3"
+        >
+          <p className="text-sm text-card-foreground">
+            Colaboradores de instituições associadas à ABRACAM têm desconto nos planos. Para
+            validar, informe o CNPJ da instituição. O e-mail desta conta (
+            <strong>{email ?? "—"}</strong>) precisa ser o e-mail da instituição.
+          </p>
+          {pessoal && (
+            <p className="flex items-start gap-2 text-xs text-destructive">
+              <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
+              Esta conta usa um e-mail pessoal, que não dá direito ao desconto. Para ter o preço de
+              associado, crie uma conta com o seu e-mail da instituição ou fale com a ABRACAM.
+            </p>
+          )}
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="block text-xs font-medium text-muted-foreground">
+              CNPJ da instituição associada
+              <input
+                value={cnpj}
+                onChange={(e) => setCnpj(formatarCnpj(e.target.value))}
+                inputMode="numeric"
+                placeholder="00.000.000/0000-00"
+                required
+                className="mt-1 block w-56 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-ring"
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={mut.isPending || digitos.length !== 14 || cnpjInvalido}
+              className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+            >
+              {mut.isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <BadgeCheck className="size-4" />
+              )}
+              Validar vínculo
+            </button>
+          </div>
+          {cnpjInvalido && <p className="text-xs text-destructive">CNPJ inválido.</p>}
+        </form>
+      )}
+    </section>
   );
 }

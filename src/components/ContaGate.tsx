@@ -8,6 +8,7 @@ import { cnpjValido, formatarCnpj } from "@/lib/cnpj";
 import { cpfValido, formatarCpf } from "@/lib/cpf";
 import { mensagemErro } from "@/lib/erros";
 import { completarCadastro } from "@/lib/usuarios.functions";
+import { AvisoEmailPessoal, CaixaAssociado } from "@/components/CaixaAssociado";
 import { TourBoasVindas } from "@/components/TourBoasVindas";
 import {
   AlertDialog,
@@ -147,14 +148,20 @@ function CompletarCadastro({
   const [cpf, setCpf] = useState("");
   const [cnpj, setCnpj] = useState("");
   const [instituicao, setInstituicao] = useState("");
+  const [associado, setAssociado] = useState(false);
 
   const cpfInvalido = cpf.replace(/\D/g, "").length === 11 && !cpfValido(cpf);
   const cnpjInvalido = cnpj.replace(/\D/g, "").length === 14 && !cnpjValido(cnpj);
 
   const mut = useMutation({
-    mutationFn: () => salvar({ data: { token, nome, cpf, cnpj: cnpj || null, instituicao } }),
-    onSuccess: async () => {
-      toast.success("Cadastro concluído!");
+    mutationFn: () =>
+      salvar({ data: { token, nome, cpf, cnpj: cnpj || null, instituicao, associado } }),
+    onSuccess: async (r) => {
+      toast.success(
+        r.associado
+          ? "Cadastro concluído! Seu desconto de associado já vale nos planos."
+          : "Cadastro concluído!",
+      );
       await queryClient.invalidateQueries({ queryKey: ["status-conta"] });
       await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
@@ -196,6 +203,11 @@ function CompletarCadastro({
           />
         </label>
 
+        <div className="space-y-2">
+          <CaixaAssociado marcado={associado} onChange={setAssociado} emailFixo />
+          <AvisoEmailPessoal marcado={associado} email={email ?? ""} emailFixo />
+        </div>
+
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block text-xs font-medium text-card-foreground/80">
             CPF *
@@ -210,8 +222,9 @@ function CompletarCadastro({
             {cpfInvalido && <span className="mt-1 block text-destructive">CPF inválido.</span>}
           </label>
           <label className="block text-xs font-medium text-card-foreground/80">
-            CNPJ (opcional)
+            {associado ? "CNPJ da instituição associada *" : "CNPJ (opcional)"}
             <input
+              required={associado}
               inputMode="numeric"
               value={cnpj}
               onChange={(e) => setCnpj(formatarCnpj(e.target.value))}

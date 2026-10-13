@@ -1,5 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import {
+  associadoVigente,
+  mensagemAssociado,
+  verificarAssociado,
+} from "@/lib/associados.functions";
 import { cnpjValido, formatarCnpj, limparCnpj } from "@/lib/cnpj";
 import { cpfValido, formatarCpf, hashCpf, limparCpf } from "@/lib/cpf";
 import {
@@ -19,6 +24,8 @@ import {
  *   ele é gravado direto no perfil pelo servidor.
  * - completarCadastro: mesmo formulário para quem entrou pelo Google ou já
  *   tinha conta antes do cadastro completo.
+ * - Nos dois, "Sou associado(a) ABRACAM" marcado exige CNPJ da lista de
+ *   associados e e-mail de um domínio da instituição (desconto de associado).
  * - statusConta: o que o app precisa saber a cada página (cadastro, admin, plano).
  * - listarUsuarios / detalheUsuario / atualizarCadastroUsuario / atualizarPlano:
  *   painel /admin/usuarios.
@@ -60,6 +67,9 @@ const dadosCadastroSchema = z.object({
   cnpj: cnpjSchema,
   instituicao: instituicaoSchema,
 });
+
+/** Caixa "Sou associado(a) ABRACAM" do cadastro */
+const associadoSchema = z.boolean().default(false);
 
 // ---------------------------------------------------------------------
 // Utilitários de servidor
@@ -115,6 +125,29 @@ async function cpfEmUso(supabaseAdmin: Admin, cpf: string, hash: string, excetoI
 
 function primeiroNome(nome: string) {
   return nome.trim().split(/\s+/)[0] ?? nome;
+}
+
+/**
+ * Cadastro com "Sou associado(a)" marcado: só avança se o CNPJ estiver na
+ * lista de associados e o e-mail for de um domínio da instituição.
+ */
+async function vinculoDoCadastro(
+  supabaseAdmin: Admin,
+  cnpj: string | null,
+  email: string | null | undefined,
+) {
+  if (!cnpj) {
+    throw new Error(
+      "Informe o CNPJ da instituição associada, ou desmarque “Sou associado(a) ABRACAM” para continuar com o preço normal.",
+    );
+  }
+  const v = await verificarAssociado(supabaseAdmin, cnpj, email);
+  if (!v.ok) throw new Error(mensagemAssociado(v.motivo));
+  return {
+    associado_id: v.id,
+    associado_em: new Date().toISOString(),
+    associado_origem: "cadastro",
+  };
 }
 
 /**
@@ -236,6 +269,7 @@ export const meuPerfil = createServerFn({ method: "POST" })
     const provedores = (user.app_metadata?.["providers"] as string[] | undefined) ?? [
       (user.app_metadata?.["provider"] as string | undefined) ?? "email",
     ];
+    const associado = await associadoVigente(supabaseAdmin, user.id, user.email);
 
     return {
       nome: perfil?.nome_completo ?? perfil?.full_name ?? perfil?.username ?? "",
@@ -253,6 +287,8 @@ export const meuPerfil = createServerFn({ method: "POST" })
       isAdmin: admin,
       gratuidadeUsada,
       participaRanking: perfil?.show_in_ranking ?? true,
+      /** Associado ABRACAM com desconto valendo agora (null = não é associado) */
+      associado: associado ? { nome: associado.nome } : null,
     };
   });
 
@@ -275,6 +311,7 @@ export const definirParticipacaoRanking = createServerFn({ method: "POST" })
 // Cadastro de nova conta (tela /auth, aba "Criar conta")
 // ---------------------------------------------------------------------
 const novoCadastroSchema = dadosCadastroSchema.extend({
+  associado: associadoSchema,
   email: z.string().trim().toLowerCase().email("E-mail inválido."),
   senha: z
     .string()
@@ -291,6 +328,10 @@ export const cadastrarAluno = createServerFn({ method: "POST" })
     if (await cpfEmUso(supabaseAdmin, data.cpf, cpfHash)) {
       throw new Error("Este CPF já possui cadastro. Entre com a sua conta ou fale com a ABRACAM.");
     }
+    // Antes de criar a conta: quem marcou "associado" e não confere não avança
+    const vinculo = data.associado
+      ? await vinculoDoCadastro(supabaseAdmin, data.cnpj, data.email)
+      : null;
 
     const publico = await clientePublico();
     const { data: res, error } = await publico.auth.signUp({
@@ -320,6 +361,7 @@ export const cadastrarAluno = createServerFn({ method: "POST" })
       cnpj: data.cnpj,
       instituicao: data.instituicao,
       cadastro_completo_em: new Date().toISOString(),
+      ...vinculo,
     });
     if (ePerfil) {
       // Não deixa conta órfã sem os dados obrigatórios
@@ -335,6 +377,7 @@ export const cadastrarAluno = createServerFn({ method: "POST" })
       sessao: res.session
         ? { access_token: res.session.access_token, refresh_token: res.session.refresh_token }
         : null,
+      associado: vinculo !== null,
     };
   });
 
@@ -342,7 +385,9 @@ export const cadastrarAluno = createServerFn({ method: "POST" })
 // Completar cadastro (login pelo Google ou conta antiga)
 // ---------------------------------------------------------------------
 export const completarCadastro = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => dadosCadastroSchema.extend({ token: tokenSchema }).parse(d))
+  .inputValidator((d: unknown) =>
+    dadosCadastroSchema.extend({ token: tokenSchema, associado: associadoSchema }).parse(d),
+  )
   .handler(async ({ data }) => {
     const supabaseAdmin = await servidor();
     const user = await usuarioDoToken(supabaseAdmin, data.token);
@@ -367,6 +412,9 @@ export const completarCadastro = createServerFn({ method: "POST" })
     if (await cpfEmUso(supabaseAdmin, data.cpf, cpfHash, user.id)) {
       throw new Error("Este CPF já está cadastrado em outra conta.");
     }
+    const vinculo = data.associado
+      ? await vinculoDoCadastro(supabaseAdmin, data.cnpj, user.email)
+      : null;
 
     const { error } = await supabaseAdmin.from("profiles").upsert({
       id: user.id,
@@ -378,11 +426,12 @@ export const completarCadastro = createServerFn({ method: "POST" })
       cnpj: data.cnpj,
       instituicao: data.instituicao,
       cadastro_completo_em: new Date().toISOString(),
+      ...vinculo,
     });
     if (error) {
       throw new Error(/cpf/i.test(error.message) ? "Este CPF já possui cadastro." : error.message);
     }
-    return { ok: true as const };
+    return { ok: true as const, associado: vinculo !== null };
   });
 
 // ---------------------------------------------------------------------
@@ -542,7 +591,7 @@ export const detalheUsuario = createServerFn({ method: "POST" })
         supabaseAdmin
           .from("profiles")
           .select(
-            "id, nome_completo, full_name, username, email, cpf, cpf_hash, cnpj, instituicao, plano, plano_validade, plano_nome, cadastro_completo_em, created_at",
+            "id, nome_completo, full_name, username, email, cpf, cpf_hash, cnpj, instituicao, plano, plano_validade, plano_nome, cadastro_completo_em, created_at, associado_id, associado_em, associado_origem",
           )
           .eq("id", data.userId)
           .maybeSingle(),
@@ -569,6 +618,31 @@ export const detalheUsuario = createServerFn({ method: "POST" })
       gratuidadeUsada = Boolean(usada);
     }
 
+    let associado: {
+      id: string;
+      nome: string;
+      ativo: boolean;
+      origem: string | null;
+      em: string | null;
+    } | null = null;
+    if (perfil.associado_id) {
+      const { data: inst, error: eInst } = await supabaseAdmin
+        .from("associados")
+        .select("id, nome, ativo")
+        .eq("id", perfil.associado_id)
+        .maybeSingle();
+      if (eInst) throw new Error(eInst.message);
+      if (inst) {
+        associado = {
+          id: inst.id,
+          nome: inst.nome,
+          ativo: inst.ativo,
+          origem: perfil.associado_origem,
+          em: perfil.associado_em,
+        };
+      }
+    }
+
     const u = auth?.user;
     const provedores = (u?.app_metadata?.["providers"] as string[] | undefined) ?? [
       (u?.app_metadata?.["provider"] as string | undefined) ?? "email",
@@ -593,6 +667,7 @@ export const detalheUsuario = createServerFn({ method: "POST" })
       provedores,
       isAdmin: admin,
       gratuidadeUsada,
+      associado,
       simulados: simulados ?? [],
     };
   });

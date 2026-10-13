@@ -4,6 +4,7 @@ import { Building2, IdCard, Landmark, Loader2, Lock, Mail, User } from "lucide-r
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import logoAsset from "@/assets/abracam-logo.png.asset.json";
+import { AvisoEmailPessoal, CaixaAssociado } from "@/components/CaixaAssociado";
 import { supabase } from "@/integrations/supabase/client";
 import { consumirDestinoAposLogin } from "@/lib/destino-login";
 import { mensagemErro } from "@/lib/erros";
@@ -44,6 +45,7 @@ function AuthPage() {
   const [cpf, setCpf] = useState("");
   const [cnpj, setCnpj] = useState("");
   const [instituicao, setInstituicao] = useState("");
+  const [associado, setAssociado] = useState(false);
   const cadastrar = useServerFn(cadastrarAluno);
 
   const cpfInvalido = cpf.replace(/\D/g, "").length === 11 && !cpfValido(cpf);
@@ -51,6 +53,7 @@ function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+  const [associadoValidado, setAssociadoValidado] = useState(false);
   // "Esqueci minha senha": pedir o link por e-mail
   const [recuperar, setRecuperar] = useState(false);
   const [linkEnviado, setLinkEnviado] = useState(false);
@@ -92,12 +95,13 @@ function AuthPage() {
       } else {
         // A conta é criada no servidor, que grava CPF e dados do cadastro no
         // perfil sem passá-los pelos metadados do login.
-        const { sessao } = await cadastrar({
+        const { sessao, associado: comDesconto } = await cadastrar({
           data: {
             nome,
             cpf,
             cnpj: cnpj || null,
             instituicao,
+            associado,
             email,
             senha: password,
             redirectTo: window.location.origin,
@@ -106,9 +110,14 @@ function AuthPage() {
         if (sessao) {
           const { error } = await supabase.auth.setSession(sessao);
           if (error) throw error;
-          toast.success("Conta criada com sucesso!");
+          toast.success(
+            comDesconto
+              ? "Conta criada! Seu desconto de associado já vale nos planos."
+              : "Conta criada com sucesso!",
+          );
         } else {
           setEmailSent(true);
+          setAssociadoValidado(comDesconto);
           toast.success("Confira seu e-mail para confirmar a conta.");
         }
       }
@@ -263,6 +272,12 @@ function AuthPage() {
                 Enviamos um link de confirmação para <strong>{email}</strong>. Confirme seu e-mail
                 para acessar a plataforma.
               </p>
+              {associadoValidado && (
+                <p className="rounded-md border border-success/50 bg-success/10 p-3 text-xs text-card-foreground">
+                  Cadastro de associado(a) ABRACAM validado: depois de confirmar o e-mail, os planos
+                  já aparecem com o preço de associado.
+                </p>
+              )}
               <button
                 type="button"
                 onClick={() => {
@@ -303,9 +318,15 @@ function AuthPage() {
                   </Field>
                   {cpfInvalido && <p className="-mt-2 text-xs text-destructive">CPF inválido.</p>}
 
-                  <Field label="CNPJ (opcional)" icon={Landmark}>
+                  <CaixaAssociado marcado={associado} onChange={setAssociado} />
+
+                  <Field
+                    label={associado ? "CNPJ da instituição associada" : "CNPJ (opcional)"}
+                    icon={Landmark}
+                  >
                     <input
                       type="text"
+                      required={associado}
                       inputMode="numeric"
                       value={cnpj}
                       onChange={(e) => setCnpj(formatarCnpj(e.target.value))}
@@ -335,11 +356,14 @@ function AuthPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="voce@email.com"
+                  placeholder={
+                    mode === "signup" && associado ? "nome@suainstituicao.com.br" : "voce@email.com"
+                  }
                   autoComplete="email"
                   className="w-full bg-transparent text-sm text-card-foreground outline-none placeholder:text-muted-foreground"
                 />
               </Field>
+              {mode === "signup" && <AvisoEmailPessoal marcado={associado} email={email} />}
 
               <Field label="Senha" icon={Lock}>
                 <input

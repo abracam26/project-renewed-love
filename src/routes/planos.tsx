@@ -3,6 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
+  BadgeCheck,
   CalendarCheck,
   Check,
   Clock,
@@ -334,6 +335,32 @@ function Planos() {
         )}
       </div>
 
+      {atual.associado ? (
+        <div className="panel flex items-start gap-2 border-success/40 p-4 text-sm text-card-foreground">
+          <BadgeCheck className="mt-0.5 size-4 shrink-0 text-success" />
+          <p>
+            Associado(a) ABRACAM: <strong>{atual.associado.nome}</strong>. Os planos com preço de
+            associado já aparecem com o desconto.
+          </p>
+        </div>
+      ) : (
+        !atual.isAdmin &&
+        planos.some((p) => p.precoAssociadoCentavos !== null) && (
+          <div className="panel flex flex-wrap items-center justify-between gap-3 p-4 text-sm text-card-foreground">
+            <p className="flex items-start gap-2">
+              <BadgeCheck className="mt-0.5 size-4 shrink-0 text-primary" />
+              <span>
+                É associado(a) ABRACAM? Valide seu vínculo no Perfil com o CNPJ da instituição e o
+                seu e-mail institucional para pagar o preço de associado.
+              </span>
+            </p>
+            <Link to="/perfil" hash="associado" className={botaoSecundario}>
+              Validar no Perfil
+            </Link>
+          </div>
+        )
+      )}
+
       {pendente &&
         (bloqueado ? (
           <div className="panel flex flex-wrap items-center justify-between gap-3 border-destructive/40 p-4 text-sm text-card-foreground">
@@ -508,12 +535,33 @@ function CartaoPlano({
           )}
         </div>
       </div>
-      <p className="mt-4 text-2xl font-bold text-card-foreground">
+      {p.descontoAssociado && (
+        <p className="mt-4 text-xs text-muted-foreground">
+          De <span className="line-through">{formatarReais(p.precoNormalCentavos)}</span> por
+        </p>
+      )}
+      <p
+        className={cn(
+          "text-2xl font-bold text-card-foreground",
+          p.descontoAssociado ? "mt-0.5" : "mt-4",
+        )}
+      >
         {formatarReais(p.precoCentavos)}
       </p>
       <p className="text-xs text-muted-foreground">
         {periodoDoPlano(p.duracaoQuantidade, p.duracaoUnidade)}
       </p>
+      {p.descontoAssociado ? (
+        <p className="mt-2 inline-flex w-fit items-center gap-1 rounded-full bg-success px-2.5 py-0.5 text-[11px] font-semibold text-success-foreground">
+          <BadgeCheck className="size-3" /> Preço de associado ABRACAM
+        </p>
+      ) : (
+        p.precoAssociadoCentavos !== null && (
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            Associados ABRACAM: {formatarReais(p.precoAssociadoCentavos)}
+          </p>
+        )
+      )}
       {p.descricao && <p className="mt-2 text-xs text-muted-foreground">{p.descricao}</p>}
 
       <ListaBeneficios itens={p.beneficios} />
@@ -770,8 +818,17 @@ function FormContratar({
         <div className="rounded-md border border-border bg-secondary/40 p-3 text-card-foreground">
           <p className="font-semibold">{plano.nome}</p>
           <p>
-            <strong>{formatarReais(plano.precoCentavos)}</strong> · acesso por{" "}
-            {descreverDuracao(plano.duracaoQuantidade, plano.duracaoUnidade)}
+            <strong>{formatarReais(plano.precoCentavos)}</strong>
+            {plano.descontoAssociado && (
+              <>
+                {" "}
+                <span className="text-xs text-muted-foreground">
+                  (preço de associado; normal:{" "}
+                  <span className="line-through">{formatarReais(plano.precoNormalCentavos)}</span>)
+                </span>
+              </>
+            )}{" "}
+            · acesso por {descreverDuracao(plano.duracaoQuantidade, plano.duracaoUnidade)}
           </p>
           <p className="mt-2 flex items-start gap-1.5 text-xs">
             <CalendarCheck className="mt-0.5 size-3.5 shrink-0 text-success" />
@@ -973,6 +1030,11 @@ function CartaoPedido({
           <p className="font-mono text-sm font-semibold text-card-foreground">{p.codigo}</p>
           <p className="text-sm text-card-foreground">
             {p.planoNome} · {formatarReais(p.valorTotal)}
+            {p.descontoAssociado && (
+              <span className="ml-1.5 text-[11px] font-medium text-success">
+                (preço de associado)
+              </span>
+            )}
           </p>
           <p className="text-[11px] text-muted-foreground">
             Pedido feito em {dataHora(p.criadoEm)}
