@@ -60,10 +60,11 @@ import {
   atualizarCadastroUsuario,
   atualizarPlano,
   detalheUsuario,
-  exportarUsuariosCsv,
+  exportarUsuarios,
   listarUsuarios,
   type FiltroUsuarios,
 } from "@/lib/usuarios.functions";
+import { baixarUsuarios, type FormatoExportacao } from "@/lib/exportar-usuarios";
 import { nomeProva } from "@/lib/provas";
 import { cn } from "@/lib/utils";
 
@@ -134,20 +135,26 @@ export function GestorUsuarios({ token }: { token: string }) {
   const paginas = Math.max(1, Math.ceil(total / POR_PAGINA));
 
   // Exporta todos os usuários da busca e do filtro aplicados (não só a página aberta)
-  const exportar = useServerFn(exportarUsuariosCsv);
+  const exportar = useServerFn(exportarUsuarios);
   const mutExportar = useMutation({
-    mutationFn: () => exportar({ data: { token, busca, filtro } }),
-    onSuccess: ({ csv, total: n }) => {
-      const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `usuarios-simulador-abt-${hojeSaoPaulo()}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
-      toast.success(`Arquivo CSV gerado com ${n} usuário${n === 1 ? "" : "s"}.`);
+    mutationFn: async (formato: FormatoExportacao) => {
+      const tabela = await exportar({ data: { token, busca, filtro } });
+      await baixarUsuarios(
+        formato,
+        tabela,
+        {
+          filtro: FILTRO_LABEL[filtro],
+          busca,
+          geradoEm: new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }),
+        },
+        `usuarios-simulador-abt-${hojeSaoPaulo()}`,
+      );
+      return tabela.total;
     },
+    onSuccess: (n, formato) =>
+      toast.success(
+        `Arquivo ${formato.toUpperCase()} gerado com ${n} usuário${n === 1 ? "" : "s"}.`,
+      ),
     onError: (e) => toast.error(mensagemErro(e)),
   });
 
@@ -191,26 +198,33 @@ export function GestorUsuarios({ token }: { token: string }) {
           >
             Buscar
           </button>
-          <button
-            type="button"
-            onClick={() => mutExportar.mutate()}
-            disabled={mutExportar.isPending || total === 0}
-            title="Baixa uma planilha com todos os usuários da busca e do filtro escolhidos"
-            className="inline-flex items-center gap-2 rounded-md border border-border bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground hover:bg-accent disabled:opacity-50"
-          >
-            {mutExportar.isPending ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <Download className="size-4" />
-            )}
-            Exportar CSV
-          </button>
+          <div className="inline-flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">Exportar:</span>
+            {(["csv", "txt", "pdf"] as const).map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => mutExportar.mutate(f)}
+                disabled={mutExportar.isPending || total === 0}
+                title={`Baixa um arquivo ${f.toUpperCase()} com todos os usuários da busca e do filtro escolhidos`}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary px-3 py-2 text-sm font-medium text-secondary-foreground hover:bg-accent disabled:opacity-50"
+              >
+                {mutExportar.isPending && mutExportar.variables === f ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Download className="size-4" />
+                )}
+                {f.toUpperCase()}
+              </button>
+            ))}
+          </div>
         </form>
         <p className="mt-3 text-xs text-muted-foreground">
           {query.isPending
             ? "Carregando..."
             : `${total} usuário${total === 1 ? "" : "s"} encontrado${total === 1 ? "" : "s"}`}
-          {" · "}O “Exportar CSV” baixa todos os usuários da busca e do filtro aplicados.
+          {" · "}Os arquivos CSV, TXT e PDF trazem todos os usuários da busca e do filtro aplicados
+          (o PDF mostra as colunas principais; CSV e TXT trazem todas).
         </p>
       </section>
 

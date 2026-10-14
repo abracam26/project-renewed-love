@@ -485,17 +485,10 @@ export const listarUsuarios = createServerFn({ method: "POST" })
   });
 
 // ---------------------------------------------------------------------
-// Exportação em CSV (todos os usuários da busca e do filtro, não só a página)
+// Exportação (todos os usuários da busca e do filtro, não só a página)
 // ---------------------------------------------------------------------
 const LOTE_EXPORTACAO = 200; // limite por chamada de admin_listar_usuarios
 const MAX_EXPORTACAO = 50000;
-
-/** Célula de CSV separado por ";": aspas quando preciso e proteção contra fórmulas no Excel. */
-function celulaCsv(valor: string | number | null | undefined): string {
-  let v = valor === null || valor === undefined ? "" : String(valor);
-  if (/^[=+\-@\t\r]/.test(v)) v = `'${v}`;
-  return /[";\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
-}
 
 function dataHoraBR(iso: string | null | undefined) {
   if (!iso) return "";
@@ -509,7 +502,8 @@ function dataHoraBR(iso: string | null | undefined) {
   });
 }
 
-export const exportarUsuariosCsv = createServerFn({ method: "POST" })
+/** Usuários da busca e do filtro, em tabela (o navegador monta CSV, TXT ou PDF). */
+export const exportarUsuarios = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z
       .object({
@@ -522,25 +516,24 @@ export const exportarUsuariosCsv = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await exigirAdmin(data.token);
     const busca = data.busca?.trim();
-    const linhas: string[] = [
-      [
-        "Nome",
-        "E-mail",
-        "CPF",
-        "CNPJ",
-        "Instituição",
-        "Tipo de plano",
-        "Acesso válido até",
-        "Acesso ativo",
-        "Saldo de simulados (pacotes)",
-        "Cadastro completo",
-        "Administrador",
-        "Forma de login",
-        "Conta criada em",
-        "Último acesso",
-        "Simulados feitos",
-      ].join(";"),
+    const colunas = [
+      "Nome",
+      "E-mail",
+      "CPF",
+      "CNPJ",
+      "Instituição",
+      "Tipo de plano",
+      "Acesso válido até",
+      "Acesso ativo",
+      "Saldo de simulados (pacotes)",
+      "Cadastro completo",
+      "Administrador",
+      "Forma de login",
+      "Conta criada em",
+      "Último acesso",
+      "Simulados feitos",
     ];
+    const linhas: string[][] = [];
     let total = 0;
     for (let offset = 0; offset < MAX_EXPORTACAO; offset += LOTE_EXPORTACAO) {
       const { data: rows, error } = await supabaseAdmin.rpc("admin_listar_usuarios", {
@@ -573,16 +566,13 @@ export const exportarUsuariosCsv = createServerFn({ method: "POST" })
             dataHoraBR(u.criado_em),
             dataHoraBR(u.ultimo_acesso),
             u.simulados,
-          ]
-            .map(celulaCsv)
-            .join(";"),
+          ].map((v) => (v === null || v === undefined ? "" : String(v))),
         );
       }
       total += lote.length;
       if (lote.length < LOTE_EXPORTACAO) break;
     }
-    // BOM para o Excel reconhecer acentos (UTF-8)
-    return { csv: "\uFEFF" + linhas.join("\r\n") + "\r\n", total };
+    return { colunas, linhas, total };
   });
 
 export const detalheUsuario = createServerFn({ method: "POST" })
