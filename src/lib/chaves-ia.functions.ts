@@ -371,20 +371,29 @@ export const salvarChaveIA = createServerFn({ method: "POST" })
       );
     }
     const agora = new Date().toISOString();
-    const { error } = await supabaseAdmin.from("chaves_ia").upsert(
-      {
-        posicao: data.posicao,
-        provedor: teste.provedor,
-        chave: data.chave,
-        atualizado_em: agora,
-        atualizado_por: user.id,
-        ultimo_teste_em: agora,
-        ultimo_teste_ok: teste.ok,
-        ultimo_teste_msg: teste.mensagem.slice(0, 500),
-      },
-      { onConflict: "posicao" },
-    );
-    if (error) throw new Error(error.message);
+    const campos = {
+      provedor: teste.provedor,
+      chave: data.chave,
+      atualizado_em: agora,
+      atualizado_por: user.id,
+      ultimo_teste_em: agora,
+      ultimo_teste_ok: teste.ok,
+      ultimo_teste_msg: teste.mensagem.slice(0, 500),
+    };
+    // Sem upsert: a unicidade de posicao é adiável (para trocar principal e reserva),
+    // e o Postgres não aceita ON CONFLICT nesse tipo de restrição
+    const { data: atualizadas, error: eUpd } = await supabaseAdmin
+      .from("chaves_ia")
+      .update(campos)
+      .eq("posicao", data.posicao)
+      .select("posicao");
+    if (eUpd) throw new Error(eUpd.message);
+    if (!atualizadas || atualizadas.length === 0) {
+      const { error: eIns } = await supabaseAdmin
+        .from("chaves_ia")
+        .insert({ posicao: data.posicao, ...campos });
+      if (eIns) throw new Error(eIns.message);
+    }
     return { teste: { ok: teste.ok, mensagem: teste.mensagem } };
   });
 
