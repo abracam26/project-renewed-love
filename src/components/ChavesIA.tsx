@@ -25,7 +25,7 @@ import { mensagemErro } from "@/lib/erros";
 import { cn } from "@/lib/utils";
 
 /**
- * Chave da API de IA (Gemini): o admin cola a chave nova e salva, sem mexer
+ * Chave da API de IA (Gemini ou OpenAI): o admin cola a chave nova e salva, sem mexer
  * no projeto. Até duas chaves: se a principal falhar, a geração de questões
  * tenta sozinha pela reserva.
  */
@@ -87,19 +87,29 @@ export function ChavesIA({ token }: { token: string }) {
         <div className="min-w-0 flex-1">
           <h2 className="flex items-center gap-2 text-lg font-semibold text-card-foreground">
             <KeyRound className="size-5 text-primary" />
-            Chave da API de IA (Gemini)
+            Chave da API de IA (Gemini ou OpenAI)
           </h2>
           <p className="text-xs text-muted-foreground">
             Para trocar a chave, cole a nova e salve: a mudança vale na hora. Se a chave principal
             falhar, a geração de questões tenta sozinha pela reserva. A chave fica guardada só no
-            servidor; aqui aparecem apenas o começo e o fim dela.{" "}
+            servidor; aqui aparecem apenas o começo e o fim dela. O provedor é reconhecido pela
+            própria chave: as da OpenAI começam com sk- e as do Gemini com AIza.{" "}
+            <a
+              href="https://platform.openai.com/api-keys"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-0.5 font-medium text-primary hover:underline"
+            >
+              Chaves da OpenAI <ExternalLink className="size-3" />
+            </a>{" "}
+            ·{" "}
             <a
               href="https://aistudio.google.com/app/apikey"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-0.5 font-medium text-primary hover:underline"
             >
-              Criar chave no Google AI Studio <ExternalLink className="size-3" />
+              Chaves do Gemini <ExternalLink className="size-3" />
             </a>
           </p>
         </div>
@@ -236,7 +246,10 @@ function CartaoChave({
 
       {c.configurada ? (
         <div className="mt-2 space-y-0.5 text-xs text-muted-foreground">
-          <p className="font-mono text-sm text-card-foreground">{c.mascara}</p>
+          <p className="text-sm text-card-foreground">
+            <span className="font-mono">{c.mascara}</span>{" "}
+            <span className="text-xs text-muted-foreground">({c.provedor})</span>
+          </p>
           <p>
             Salva em {dataHora(c.atualizadoEm)}
             {c.atualizadoPor ? ` por ${c.atualizadoPor}` : ""}
@@ -271,7 +284,7 @@ function CartaoChave({
               onChange={(e) => setValor(e.target.value)}
               autoComplete="off"
               spellCheck={false}
-              placeholder="Cole aqui a chave (começa com AIza...)"
+              placeholder="Cole aqui a chave (sk-... da OpenAI ou AIza... do Gemini)"
               className={`mt-1 font-mono ${inputClass}`}
             />
           </label>

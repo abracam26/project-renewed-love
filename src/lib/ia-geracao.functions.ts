@@ -1,7 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { chamarGemini, mensagemErroGemini } from "@/lib/chaves-ia.functions";
-import { GEMINI_MODEL } from "@/lib/ia.functions";
+import { chamarIA } from "@/lib/chaves-ia.functions";
 import {
   DIFICULDADES,
   EXAMES,
@@ -390,28 +389,14 @@ export const gerarQuestoesIA = createServerFn({ method: "POST" })
       .filter((l) => l !== undefined)
       .join("\n");
 
-    // 3. Chamada ao Gemini, com novas tentativas quando o erro é passageiro
-    const corpo = JSON.stringify({
-      systemInstruction: { parts: [{ text: regras }] },
-      contents: [{ role: "user", parts: [{ text: pedido }] }],
-      generationConfig: {
-        temperature: 0.7,
-        responseMimeType: "application/json",
-        responseSchema: abt ? GEMINI_RESPONSE_SCHEMA_ABT : GEMINI_RESPONSE_SCHEMA,
-      },
+    // 3. Chamada à IA (Gemini ou OpenAI, conforme a chave): principal e, se ela falhar, a reserva
+    const resposta = await chamarIA(supabaseAdmin, {
+      sistema: regras,
+      usuario: pedido,
+      esquema: abt ? GEMINI_RESPONSE_SCHEMA_ABT : GEMINI_RESPONSE_SCHEMA,
     });
-    // Chave principal; se ela falhar, a reserva (cadastradas em Admin > Gerar com IA)
-    const { res, origem: chaveUsada, falhas } = await chamarGemini(supabaseAdmin, corpo);
-    if (!res || !res.ok) {
-      const ultima = falhas[falhas.length - 1];
-      const varias = falhas.length > 1 ? " (a chave principal e a reserva falharam)" : "";
-      throw new Error(`${mensagemErroGemini(ultima?.status ?? null)}${varias}`);
-    }
-    const resposta = (await res.json()) as {
-      candidates?: { content?: { parts?: { text?: string }[] } }[];
-      usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
-    };
-    const texto = resposta.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
+    const chaveUsada = resposta.origem;
+    const texto = resposta.texto;
 
     let bruto: unknown;
     try {
@@ -437,9 +422,9 @@ export const gerarQuestoesIA = createServerFn({ method: "POST" })
         dificuldade: data.dificuldade,
         quantidade: data.quantidade,
         instrucao_extra: data.instrucaoExtra || null,
-        modelo: GEMINI_MODEL,
-        tokens_entrada: resposta.usageMetadata?.promptTokenCount ?? null,
-        tokens_saida: resposta.usageMetadata?.candidatesTokenCount ?? null,
+        modelo: resposta.modelo,
+        tokens_entrada: resposta.tokensEntrada,
+        tokens_saida: resposta.tokensSaida,
       })
       .select("id")
       .single();
@@ -558,8 +543,8 @@ export const gerarQuestoesIA = createServerFn({ method: "POST" })
       erros,
       questoes: (gravadas ?? []) as unknown as QuestaoRow[],
       tokens: {
-        entrada: resposta.usageMetadata?.promptTokenCount ?? null,
-        saida: resposta.usageMetadata?.candidatesTokenCount ?? null,
+        entrada: resposta.tokensEntrada,
+        saida: resposta.tokensSaida,
       },
       duracaoMs: Date.now() - inicio,
     };
