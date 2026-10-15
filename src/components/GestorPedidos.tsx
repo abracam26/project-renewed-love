@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { mensagemErro } from "@/lib/erros";
+import { verificarPedidosPendentes } from "@/lib/pagarme.functions";
 import {
   FILTROS_PEDIDO,
   METODOS_PAGAMENTO,
@@ -237,6 +238,22 @@ export function GestorPedidos({ token }: { token: string }) {
 
   const fechar = () => setAcao(null);
 
+  const conferir = useServerFn(verificarPedidosPendentes);
+  const atualizarTudo = useAtualizarPedidos();
+  const mutConferir = useMutation({
+    mutationFn: () => conferir({ data: { token } }),
+    onSuccess: async (r) => {
+      toast.success(
+        r.confirmados > 0
+          ? `${r.confirmados} pagamento(s) online confirmado(s) e liberado(s).`
+          : `Nenhum pagamento novo (${r.verificados} pedido(s) online conferido(s)).`,
+        r.erros > 0 ? { description: `${r.erros} não puderam ser consultados agora.` } : undefined,
+      );
+      await atualizarTudo();
+    },
+    onError: (e) => toast.error(mensagemErro(e)),
+  });
+
   return (
     <section className="panel p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -251,15 +268,27 @@ export function GestorPedidos({ token }: { token: string }) {
             somando os dias do plano.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => void query.refetch()}
-          disabled={query.isFetching}
-          className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-card-foreground hover:bg-accent disabled:opacity-50"
-        >
-          <RefreshCw className={cn("size-3.5", query.isFetching && "animate-spin")} />
-          Atualizar
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => mutConferir.mutate()}
+            disabled={mutConferir.isPending}
+            title="Consulta no Pagar.me os pedidos de Pix e boleto em aberto e libera os que já foram pagos"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-card-foreground hover:bg-accent disabled:opacity-50"
+          >
+            <RefreshCw className={cn("size-3.5", mutConferir.isPending && "animate-spin")} />
+            Conferir pagamentos online
+          </button>
+          <button
+            type="button"
+            onClick={() => void query.refetch()}
+            disabled={query.isFetching}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-card-foreground hover:bg-accent disabled:opacity-50"
+          >
+            <RefreshCw className={cn("size-3.5", query.isFetching && "animate-spin")} />
+            Atualizar
+          </button>
+        </div>
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">

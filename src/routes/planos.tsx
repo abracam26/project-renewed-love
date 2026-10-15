@@ -40,11 +40,12 @@ import {
 import {
   cancelarMeuPedido,
   criarPedido,
+  obterBoletoPedido,
   obterPixPedido,
   planosParaAluno,
   verificarPagamentoPagarme,
 } from "@/lib/pagamentos.functions";
-import type { PixGerado } from "@/lib/pagarme.server";
+import type { BoletoGerado, Endereco, PixGerado } from "@/lib/pagarme.server";
 import { formatarDataBR, nomeDoPlano, novaValidade } from "@/lib/planos";
 import { cn } from "@/lib/utils";
 
@@ -244,6 +245,7 @@ function Planos() {
   // Depois de um pedido, a página rola até "Meus pedidos" quando o diálogo termina de fechar
   const rolarDepoisDeFechar = useRef(false);
   const [pixAberto, setPixAberto] = useState<PixAberto | null>(null);
+  const [boletoAberto, setBoletoAberto] = useState<BoletoAberto | null>(null);
 
   if (loading || !token || query.isPending) {
     return (
@@ -460,6 +462,7 @@ function Planos() {
                 superado={superado(p)}
                 online={dados.gateway === "pagarme"}
                 onPagarPix={setPixAberto}
+                onVerBoleto={setBoletoAberto}
               />
             ))}
           </ul>
@@ -491,6 +494,10 @@ function Planos() {
                   setDialogoAberto(false);
                   setPixAberto(x);
                 }}
+                onBoleto={(x) => {
+                  setDialogoAberto(false);
+                  setBoletoAberto(x);
+                }}
               />
             ) : (
               <PlanoIndisponivel onVoltar={() => setDialogoAberto(false)} />
@@ -501,11 +508,109 @@ function Planos() {
       {pixAberto && (
         <JanelaPix token={token} alvo={pixAberto} onFechar={() => setPixAberto(null)} />
       )}
+      {boletoAberto && (
+        <JanelaBoleto token={token} alvo={boletoAberto} onFechar={() => setBoletoAberto(null)} />
+      )}
     </div>
   );
 }
 
 type PixAberto = { pedidoId: string; codigo: string; valor: number; pix: PixGerado | null };
+type BoletoAberto = {
+  pedidoId: string;
+  codigo: string;
+  valor: number;
+  boleto: BoletoGerado | null;
+};
+
+/** Boleto (Pagar.me): linha digitável, PDF e aviso do prazo de compensação. */
+function JanelaBoleto({
+  token,
+  alvo,
+  onFechar,
+}: {
+  token: string;
+  alvo: BoletoAberto;
+  onFechar: () => void;
+}) {
+  const obter = useServerFn(obterBoletoPedido);
+  const q = useQuery({
+    queryKey: ["boleto-pedido", alvo.pedidoId],
+    queryFn: () => obter({ data: { token, pedidoId: alvo.pedidoId } }),
+    enabled: !alvo.boleto,
+    retry: false,
+    ...(alvo.boleto ? { initialData: alvo.boleto } : {}),
+  });
+  const boleto = q.data;
+
+  async function copiar() {
+    if (!boleto) return;
+    try {
+      await navigator.clipboard.writeText(boleto.linha);
+      toast.success("Linha digitável copiada.");
+    } catch {
+      toast.error("Não foi possível copiar. Selecione o código e copie manualmente.");
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(aberto) => !aberto && onFechar()}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto bg-card text-card-foreground sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Pagar com boleto</DialogTitle>
+          <DialogDescription>
+            Pedido <span className="font-mono">{alvo.codigo}</span> · {formatarReais(alvo.valor)}
+          </DialogDescription>
+        </DialogHeader>
+        {q.isError ? (
+          <p className="text-sm text-destructive">{mensagemErro(q.error)}</p>
+        ) : !boleto ? (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin text-primary" /> Gerando o boleto...
+          </p>
+        ) : (
+          <div className="space-y-3">
+            <a
+              href={boleto.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-full rounded-md bg-primary px-3 py-2 text-center text-sm font-semibold text-primary-foreground"
+            >
+              Abrir o boleto (PDF)
+            </a>
+            <p className="text-xs text-muted-foreground">
+              Ou pague pelo app do banco com a linha digitável:
+            </p>
+            <textarea
+              readOnly
+              value={boleto.linha}
+              rows={2}
+              onFocus={(e) => e.currentTarget.select()}
+              className="w-full resize-none rounded-md border border-border bg-background p-2 font-mono text-[11px] text-foreground"
+            />
+            <button
+              type="button"
+              onClick={copiar}
+              className="w-full rounded-md border border-border px-3 py-2 text-sm font-semibold text-card-foreground hover:bg-accent"
+            >
+              Copiar linha digitável
+            </button>
+            {boleto.vencimento && (
+              <p className="text-xs text-muted-foreground">
+                Vencimento: {new Date(boleto.vencimento).toLocaleDateString("pt-BR")}.
+              </p>
+            )}
+            <p className="rounded-md border border-border bg-muted/40 p-3 text-xs text-card-foreground">
+              O banco leva até <strong>3 dias úteis</strong> para confirmar o pagamento do boleto.
+              Quando ele for confirmado, o acesso é liberado sozinho na sua conta. Você pode reabrir
+              este boleto em Meus pedidos.
+            </p>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 /** QR Code do Pix (Pagar.me) e conferência automática do pagamento enquanto está aberta. */
 function JanelaPix({
@@ -812,6 +917,7 @@ function PlanoIndisponivel({ onVoltar }: { onVoltar: () => void }) {
 
 /** O que vai ao servidor: a escolha do aluno e o que a tela mostrou sobre o pedido pendente. */
 type EnvioPedido = {
+  endereco: Endereco | null;
   telefone: string | null;
   metodo: FormaManual;
   comprador: "cpf" | "cnpj";
@@ -828,6 +934,7 @@ function FormContratar({
   onVoltar,
   onIrParaPedidos,
   onPix,
+  onBoleto,
 }: {
   token: string;
   plano: PlanoVenda;
@@ -841,12 +948,16 @@ function FormContratar({
   onIrParaPedidos: () => void;
   /** Pagamento online: abre o QR Code do Pix */
   onPix: (x: PixAberto) => void;
+  /** Pagamento online: abre o boleto */
+  onBoleto: (x: BoletoAberto) => void;
 }) {
   const { atual, comprador: docs, formas, prazoDias } = dados;
   const criar = useServerFn(criarPedido);
   const queryClient = useQueryClient();
   const [comprador, setComprador] = useState<"cpf" | "cnpj">("cpf");
   const [telefone, setTelefone] = useState(formatarCelular(docs.telefone ?? ""));
+  const [endereco, setEndereco] = useState<Endereco>(() => enderecoInicial(docs.endereco));
+  const [buscandoCep, setBuscandoCep] = useState(false);
   const [metodo, setMetodo] = useState<FormaManual | null>(
     formas.length === 1 ? (formas[0]?.metodo ?? null) : null,
   );
@@ -859,6 +970,41 @@ function FormContratar({
         ? (formas[0]?.metodo ?? null)
         : null;
   const pixOnline = dados.gateway === "pagarme" && metodoValido === "pix";
+  const boletoOnline = dados.gateway === "pagarme" && metodoValido === "boleto";
+  const online = pixOnline || boletoOnline;
+  const dadosOnlineOk =
+    !online || (celularValido(telefone) && (!boletoOnline || enderecoValido(endereco)));
+
+  async function buscarCep(cep: string) {
+    const d = cep.replace(/\D/g, "");
+    if (d.length !== 8) return;
+    setBuscandoCep(true);
+    try {
+      const r = await fetch(`https://viacep.com.br/ws/${d}/json/`);
+      const j = (await r.json()) as {
+        erro?: boolean;
+        logradouro?: string;
+        bairro?: string;
+        localidade?: string;
+        uf?: string;
+      };
+      if (j.erro) {
+        toast.error("CEP não encontrado. Confira ou preencha o endereço à mão.");
+        return;
+      }
+      setEndereco((e) => ({
+        ...e,
+        rua: j.logradouro || e.rua,
+        bairro: j.bairro || e.bairro,
+        cidade: j.localidade || e.cidade,
+        uf: j.uf || e.uf,
+      }));
+    } catch {
+      // Sem a busca, o aluno preenche à mão
+    } finally {
+      setBuscandoCep(false);
+    }
+  }
   const compradorValido: "cpf" | "cnpj" = comprador === "cnpj" && !docs.cnpj ? "cpf" : comprador;
   // Impedimentos que podem ter chegado no recarregamento (mesma regra dos cartões)
   const barrado =
@@ -923,12 +1069,23 @@ function FormContratar({
           pendenteEsperado: v.pendenteEsperado,
           manterEsperado: v.manterEsperado,
           telefone: v.telefone,
+          endereco: v.endereco,
         },
       }),
     onSuccess: async (r, v) => {
       if (r.pix) {
         await queryClient.invalidateQueries({ queryKey: ["planos-aluno"] });
         onPix({ pedidoId: r.pedidoId, codigo: r.codigo, valor: plano.precoCentavos, pix: r.pix });
+        return;
+      }
+      if (r.boleto) {
+        await queryClient.invalidateQueries({ queryKey: ["planos-aluno"] });
+        onBoleto({
+          pedidoId: r.pedidoId,
+          codigo: r.codigo,
+          valor: plano.precoCentavos,
+          boleto: r.boleto,
+        });
         return;
       }
       if (v.manterEsperado && !r.reaproveitado) {
@@ -1072,13 +1229,15 @@ function FormContratar({
             )}
             {pixOnline
               ? "Depois do pedido, o QR Code do Pix aparece nesta página e o pagamento é confirmado sozinho."
-              : "As instruções de pagamento aparecem em Meus pedidos, nesta página, logo depois do pedido."}
+              : boletoOnline
+                ? "Depois do pedido, o boleto aparece nesta página. O banco leva até 3 dias úteis para confirmar o pagamento; o acesso é liberado sozinho."
+                : "As instruções de pagamento aparecem em Meus pedidos, nesta página, logo depois do pedido."}
           </p>
         </fieldset>
 
-        {pixOnline && (
+        {online && (
           <label className="block text-xs font-medium text-muted-foreground">
-            Celular com DDD (exigido pelo Pagar.me para o Pix)
+            Celular com DDD (exigido pelo Pagar.me)
             <input
               type="tel"
               inputMode="numeric"
@@ -1094,6 +1253,81 @@ function FormContratar({
               </span>
             )}
           </label>
+        )}
+
+        {boletoOnline && (
+          <fieldset className="space-y-2">
+            <legend className="mb-1 text-xs font-medium text-muted-foreground">
+              Endereço do pagador (exigido para emitir o boleto)
+            </legend>
+            <div className="grid grid-cols-6 gap-2">
+              <CampoEndereco
+                className="col-span-3"
+                rotulo="CEP"
+                valor={endereco.cep}
+                inputMode="numeric"
+                autoComplete="postal-code"
+                onMudar={(v) => {
+                  const cep = formatarCep(v);
+                  setEndereco((e) => ({ ...e, cep }));
+                  if (cep.replace(/\D/g, "").length === 8) void buscarCep(cep);
+                }}
+                dica={buscandoCep ? "Buscando endereço..." : undefined}
+              />
+              <CampoEndereco
+                className="col-span-3"
+                rotulo="Número"
+                valor={endereco.numero}
+                onMudar={(v) => setEndereco((e) => ({ ...e, numero: v }))}
+              />
+              <CampoEndereco
+                className="col-span-6"
+                rotulo="Rua"
+                valor={endereco.rua}
+                autoComplete="address-line1"
+                onMudar={(v) => setEndereco((e) => ({ ...e, rua: v }))}
+              />
+              <CampoEndereco
+                className="col-span-6"
+                rotulo="Complemento (opcional)"
+                valor={endereco.complemento}
+                onMudar={(v) => setEndereco((e) => ({ ...e, complemento: v }))}
+              />
+              <CampoEndereco
+                className="col-span-6"
+                rotulo="Bairro"
+                valor={endereco.bairro}
+                onMudar={(v) => setEndereco((e) => ({ ...e, bairro: v }))}
+              />
+              <CampoEndereco
+                className="col-span-4"
+                rotulo="Cidade"
+                valor={endereco.cidade}
+                autoComplete="address-level2"
+                onMudar={(v) => setEndereco((e) => ({ ...e, cidade: v }))}
+              />
+              <CampoEndereco
+                className="col-span-2"
+                rotulo="UF"
+                valor={endereco.uf}
+                autoComplete="address-level1"
+                onMudar={(v) =>
+                  setEndereco((e) => ({
+                    ...e,
+                    uf: v
+                      .replace(/[^a-zA-Z]/g, "")
+                      .slice(0, 2)
+                      .toUpperCase(),
+                  }))
+                }
+              />
+            </div>
+            {!enderecoValido(endereco) && (
+              <p className="text-[11px] text-muted-foreground">
+                Preencha CEP, rua, número, bairro, cidade e UF.
+              </p>
+            )}
+          </fieldset>
         )}
 
         {recente && (
@@ -1146,19 +1380,16 @@ function FormContratar({
         <button
           type="button"
           disabled={
-            Boolean(barrado) ||
-            !metodoValido ||
-            mut.isPending ||
-            atualizando ||
-            (pixOnline && !celularValido(telefone))
+            Boolean(barrado) || !metodoValido || mut.isPending || atualizando || !dadosOnlineOk
           }
           onClick={() =>
             !barrado &&
             metodoValido &&
             !atualizando &&
-            (!pixOnline || celularValido(telefone)) &&
+            dadosOnlineOk &&
             mut.mutate({
-              telefone: pixOnline ? telefone.replace(/\D/g, "") : null,
+              telefone: online ? telefone.replace(/\D/g, "") : null,
+              endereco: boletoOnline ? enderecoParaEnvio(endereco) : null,
               metodo: metodoValido,
               comprador: compradorValido,
               pendenteEsperado,
@@ -1201,6 +1432,7 @@ function CartaoPedido({
   superado,
   online,
   onPagarPix,
+  onVerBoleto,
 }: {
   token: string;
   pedido: Pedido;
@@ -1212,6 +1444,7 @@ function CartaoPedido({
   /** Pagamento online (Pagar.me) ativo */
   online: boolean;
   onPagarPix: (x: PixAberto) => void;
+  onVerBoleto: (x: BoletoAberto) => void;
 }) {
   const cancelar = useServerFn(cancelarMeuPedido);
   const queryClient = useQueryClient();
@@ -1288,6 +1521,21 @@ function CartaoPedido({
                   className="mt-2 rounded-md bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground"
                 >
                   Pagar com Pix (QR Code)
+                </button>
+              ) : online && p.metodo === "boleto" ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    onVerBoleto({
+                      pedidoId: p.id,
+                      codigo: p.codigo,
+                      valor: p.valorTotal,
+                      boleto: null,
+                    })
+                  }
+                  className="mt-2 rounded-md bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground"
+                >
+                  Ver o boleto
                 </button>
               ) : (
                 <p className="mt-2 whitespace-pre-line">
@@ -1412,4 +1660,76 @@ function formatarCelular(v: string) {
 
 function celularValido(v: string) {
   return /^[1-9]{2}9?\d{8}$/.test(v.replace(/\D/g, ""));
+}
+
+function enderecoInicial(e: Endereco | null | undefined): Endereco {
+  return {
+    cep: e ? formatarCep(e.cep) : "",
+    rua: e?.rua ?? "",
+    numero: e?.numero ?? "",
+    complemento: e?.complemento ?? "",
+    bairro: e?.bairro ?? "",
+    cidade: e?.cidade ?? "",
+    uf: e?.uf ?? "",
+  };
+}
+
+function formatarCep(v: string) {
+  const d = v.replace(/\D/g, "").slice(0, 8);
+  return d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d;
+}
+
+function enderecoValido(e: Endereco) {
+  return (
+    e.cep.replace(/\D/g, "").length === 8 &&
+    e.rua.trim().length >= 2 &&
+    e.numero.trim().length >= 1 &&
+    e.bairro.trim().length >= 2 &&
+    e.cidade.trim().length >= 2 &&
+    /^[A-Z]{2}$/.test(e.uf)
+  );
+}
+
+function enderecoParaEnvio(e: Endereco): Endereco {
+  return {
+    cep: e.cep.replace(/\D/g, ""),
+    rua: e.rua.trim(),
+    numero: e.numero.trim(),
+    complemento: e.complemento.trim(),
+    bairro: e.bairro.trim(),
+    cidade: e.cidade.trim(),
+    uf: e.uf,
+  };
+}
+
+function CampoEndereco({
+  rotulo,
+  valor,
+  onMudar,
+  className,
+  dica,
+  inputMode,
+  autoComplete,
+}: {
+  rotulo: string;
+  valor: string;
+  onMudar: (v: string) => void;
+  className?: string;
+  dica?: string | undefined;
+  inputMode?: "numeric" | "text";
+  autoComplete?: string;
+}) {
+  return (
+    <label className={cn("block text-[11px] text-muted-foreground", className)}>
+      {rotulo}
+      <input
+        value={valor}
+        onChange={(e) => onMudar(e.target.value)}
+        inputMode={inputMode}
+        autoComplete={autoComplete}
+        className="mt-0.5 w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm text-foreground"
+      />
+      {dica && <span className="mt-0.5 block text-[10px] text-primary">{dica}</span>}
+    </label>
+  );
 }

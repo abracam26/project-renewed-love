@@ -884,6 +884,7 @@ export type Database = {
           created_at: string
           creditos_simulados: number
           email: string | null
+          endereco: Json | null
           full_name: string | null
           id: string
           instituicao: string | null
@@ -908,6 +909,7 @@ export type Database = {
           created_at?: string
           creditos_simulados?: number
           email?: string | null
+          endereco?: Json | null
           full_name?: string | null
           id: string
           instituicao?: string | null
@@ -932,6 +934,7 @@ export type Database = {
           created_at?: string
           creditos_simulados?: number
           email?: string | null
+          endereco?: Json | null
           full_name?: string | null
           id?: string
           instituicao?: string | null

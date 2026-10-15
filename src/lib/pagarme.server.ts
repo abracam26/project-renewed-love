@@ -186,6 +186,112 @@ export function extrairPix(ordem: PagarmeOrdem) {
 }
 
 // -----------------------------------------------------------------------
+// Boleto (o Pagar.me exige o endereço do pagador para boleto registrado)
+// -----------------------------------------------------------------------
+export type Endereco = {
+  cep: string;
+  rua: string;
+  numero: string;
+  complemento: string;
+  bairro: string;
+  cidade: string;
+  uf: string;
+};
+
+export type BoletoGerado = {
+  ordemId: string;
+  url: string;
+  linha: string;
+  vencimento: string | null;
+};
+
+export async function criarOrdemBoleto(
+  supabaseAdmin: SupabaseAdmin,
+  dados: DadosCriacao & { endereco: Endereco; vencimento: Date },
+): Promise<BoletoGerado> {
+  const e = dados.endereco;
+  const corpo = {
+    code: dados.codigo,
+    items: [
+      {
+        amount: dados.valorCentavos,
+        description: dados.planoNome,
+        quantity: 1,
+        code: dados.pedidoId,
+      },
+    ],
+    customer: {
+      name: dados.compradorNome,
+      email: dados.compradorEmail,
+      type: dados.compradorTipo === "cnpj" ? "company" : "individual",
+      document: dados.compradorDocumento.replace(/\D/g, ""),
+      document_type: dados.compradorTipo === "cnpj" ? "CNPJ" : "CPF",
+      phones: {
+        mobile_phone: {
+          country_code: "55",
+          area_code: dados.compradorTelefone.slice(0, 2),
+          number: dados.compradorTelefone.slice(2),
+        },
+      },
+      address: {
+        line_1: `${e.numero}, ${e.rua}, ${e.bairro}`,
+        ...(e.complemento ? { line_2: e.complemento } : {}),
+        zip_code: e.cep,
+        city: e.cidade,
+        state: e.uf,
+        country: "BR",
+      },
+    },
+    payments: [
+      {
+        payment_method: "boleto",
+        boleto: {
+          due_at: dados.vencimento.toISOString(),
+          instructions: `Pedido ${dados.codigo} - Simulador ABT (ABRACAM). Não receber após o vencimento.`,
+          type: "DM",
+        },
+      },
+    ],
+    metadata: { pedido_id: dados.pedidoId, codigo: dados.codigo },
+  };
+  const ordem = await apiPagarme<PagarmeOrdem>("POST", "/orders", corpo);
+  const boleto = extrairBoleto(ordem);
+  if (!boleto) {
+    const t = ordem.charges?.[0]?.last_transaction as
+      | { status?: string; gateway_response?: { code?: string; errors?: { message?: string }[] } }
+      | undefined;
+    const erros = (t?.gateway_response?.errors ?? [])
+      .map((x) => x.message)
+      .filter(Boolean)
+      .join("; ");
+    console.error("[Pagar.me] Boleto falhou:", JSON.stringify(t ?? ordem).slice(0, 1500));
+    const motivo = erros || t?.gateway_response?.code || t?.status;
+    throw new Error(`O Pagar.me não gerou o boleto${motivo ? `: ${motivo}` : ""}.`);
+  }
+  // O boleto compensa em até 3 dias úteis: o pedido fica aberto além do vencimento
+  const prazoPedido = new Date(dados.vencimento.getTime() + 5 * 86400000);
+  const { error } = await supabaseAdmin
+    .from("pedidos")
+    .update({
+      external_order_id: ordem.id,
+      gateway: "pagarme",
+      expira_em: prazoPedido.toISOString(),
+    })
+    .eq("id", dados.pedidoId);
+  if (error) throw new Error(error.message);
+  return { ordemId: ordem.id, ...boleto };
+}
+
+export function extrairBoleto(ordem: PagarmeOrdem) {
+  const t = ordem.charges?.[0]?.last_transaction as
+    | { url?: string; pdf?: string; line?: string; due_at?: string; transaction_type?: string }
+    | undefined;
+  const url = t?.pdf || t?.url;
+  if (!url || !t?.line) return null;
+  return { url, linha: t.line, vencimento: t.due_at ?? null };
+}
+
+// -----------------------------------------------------------------------
 // Consultar status de uma ordem
 // -----------------------------------------------------------------------
 export async function consultarOrdemPagarme(ordemId: string): Promise<PagarmeOrdem> {

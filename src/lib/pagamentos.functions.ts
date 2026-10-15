@@ -27,7 +27,7 @@ import {
   type StatusPedido,
 } from "@/lib/pagamentos";
 import { acessoAtivo, hojeSaoPaulo } from "@/lib/planos";
-import type { PixGerado } from "@/lib/pagarme.server";
+import type { BoletoGerado, Endereco, PixGerado } from "@/lib/pagarme.server";
 
 /**
  * Planos à venda, pedidos e pagamentos.
@@ -214,6 +214,30 @@ export const planosParaAluno = createServerFn({ method: "POST" })
       p_user: user.id,
     });
     erroRpc(eExp);
+    // Pedidos online em aberto (boleto compensa em dias): confere no Pagar.me se já foram pagos
+    const { data: abertosOnline } = await supabaseAdmin
+      .from("pedidos")
+      .select("id, external_order_id")
+      .eq("user_id", user.id)
+      .eq("status", "pendente")
+      .eq("gateway", "pagarme")
+      .not("external_order_id", "is", null)
+      .limit(3);
+    if (abertosOnline && abertosOnline.length > 0) {
+      const { consultarOrdemPagarme, processarPagamentoConfirmado } =
+        await import("@/lib/pagarme.server");
+      await Promise.all(
+        abertosOnline.map(async (p) => {
+          try {
+            const ordem = await consultarOrdemPagarme(p.external_order_id!);
+            if (ordem.status === "paid")
+              await processarPagamentoConfirmado(supabaseAdmin, p.id, ordem);
+          } catch (e) {
+            console.error("[Pagar.me] conferência ao abrir Planos:", e);
+          }
+        }),
+      );
+    }
     // Associado ABRACAM: confere o vínculo antes de mostrar os preços
     const associado = await associadoVigente(supabaseAdmin, user.id, user.email);
 
@@ -227,7 +251,7 @@ export const planosParaAluno = createServerFn({ method: "POST" })
       supabaseAdmin
         .from("profiles")
         .select(
-          "plano, plano_validade, plano_nome, cpf, cpf_hash, cnpj, instituicao, cadastro_completo_em, creditos_simulados, telefone",
+          "plano, plano_validade, plano_nome, cpf, cpf_hash, cnpj, instituicao, cadastro_completo_em, creditos_simulados, telefone, endereco",
         )
         .eq("id", user.id)
         .maybeSingle(),
@@ -304,6 +328,7 @@ export const planosParaAluno = createServerFn({ method: "POST" })
         cnpj: perfil?.cnpj ? mascararDocumento(perfil.cnpj) : null,
         empresa: perfil?.instituicao ?? null,
         telefone: perfil?.telefone ?? null,
+        endereco: lerEndereco(perfil?.endereco),
       },
       gateway: config.gateway,
       formas: config.formasManual.map((f) => ({
@@ -338,6 +363,8 @@ export const criarPedido = createServerFn({ method: "POST" })
           .refine((t) => /^[1-9]{2}9?\d{8}$/.test(t), "Celular inválido: informe DDD e número.")
           .nullable()
           .default(null),
+        /** Endereço do pagador (boleto online: o Pagar.me exige) */
+        endereco: enderecoSchema.nullable().default(null),
         /** O que a página mostrava: código do pedido pendente (ou null) e se ele seria mantido */
         pendenteEsperado: z.string().max(40).nullable().default(null),
         manterEsperado: z.boolean().nullable().default(null),
@@ -347,6 +374,12 @@ export const criarPedido = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin, user } = await usuarioLogado(data.token);
     const config = await carregarConfig(supabaseAdmin);
+    const online =
+      config.gateway === "pagarme" && (data.metodo === "pix" || data.metodo === "boleto");
+    if (online && !data.telefone) throw new Error("Informe seu celular com DDD para pagar online.");
+    if (online && data.metodo === "boleto" && !data.endereco) {
+      throw new Error("Informe seu endereço completo para gerar o boleto.");
+    }
     if (!config.formasManual.includes(data.metodo)) {
       throw new Error("Esta forma de pagamento não está disponível no momento.");
     }
@@ -366,25 +399,121 @@ export const criarPedido = createServerFn({ method: "POST" })
     erroRpc(error);
     const res = r as { pedido_id: string; codigo: string; reaproveitado: boolean };
 
-    const online = config.gateway === "pagarme" && data.metodo === "pix";
     if (online) {
-      if (!data.telefone) throw new Error("Informe seu celular com DDD para pagar com Pix.");
       const { error: eTel } = await supabaseAdmin
         .from("profiles")
-        .update({ telefone: data.telefone })
+        .update({
+          telefone: data.telefone,
+          ...(data.endereco ? { endereco: data.endereco as unknown as Json } : {}),
+        })
         .eq("id", user.id);
       if (eTel) throw new Error(eTel.message);
     }
-    const pix = online
-      ? await pixDoPedido(supabaseAdmin, res.pedido_id, user.id, user.email ?? null)
-      : null;
+    const pix =
+      online && data.metodo === "pix"
+        ? await pixDoPedido(supabaseAdmin, res.pedido_id, user.id, user.email ?? null)
+        : null;
+    const boleto =
+      online && data.metodo === "boleto"
+        ? await boletoDoPedido(supabaseAdmin, res.pedido_id, user.id, user.email ?? null)
+        : null;
 
     return {
       pedidoId: res.pedido_id,
       codigo: res.codigo,
       reaproveitado: res.reaproveitado,
       pix,
+      boleto,
     };
+  });
+
+const enderecoSchema = z.object({
+  cep: z
+    .string()
+    .transform((v) => v.replace(/\D/g, ""))
+    .refine((v) => /^\d{8}$/.test(v), "CEP inválido."),
+  rua: z.string().trim().min(2, "Informe a rua.").max(120),
+  numero: z.string().trim().min(1, "Informe o número.").max(20),
+  complemento: z.string().trim().max(60).default(""),
+  bairro: z.string().trim().min(2, "Informe o bairro.").max(80),
+  cidade: z.string().trim().min(2, "Informe a cidade.").max(80),
+  uf: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .refine((v) => /^[A-Z]{2}$/.test(v), "UF inválida."),
+});
+
+function lerEndereco(v: Json | null | undefined): Endereco | null {
+  const r = enderecoSchema.safeParse(v);
+  return r.success ? r.data : null;
+}
+
+/** Boleto do pedido no Pagar.me: reaproveita o boleto em aberto ou gera um novo. */
+async function boletoDoPedido(
+  supabaseAdmin: SupabaseAdmin,
+  pedidoId: string,
+  userId: string,
+  emailUsuario: string | null,
+): Promise<BoletoGerado> {
+  const { data: p, error } = await supabaseAdmin
+    .from("pedidos")
+    .select(
+      "id, codigo, status, user_id, external_order_id, plano_nome, valor_total, comprador_nome, comprador_documento, comprador_email, comprador_tipo, expira_em",
+    )
+    .eq("id", pedidoId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!p || p.user_id !== userId) throw new Error("Pedido não encontrado.");
+  if (p.status !== "pendente") throw new Error("Este pedido não está aguardando pagamento.");
+
+  const { data: perfil, error: ePerfil } = await supabaseAdmin
+    .from("profiles")
+    .select("telefone, endereco")
+    .eq("id", userId)
+    .maybeSingle();
+  if (ePerfil) throw new Error(ePerfil.message);
+  const endereco = lerEndereco(perfil?.endereco);
+  if (!perfil?.telefone || !endereco) {
+    throw new Error("Informe celular e endereço para gerar o boleto: faça o pedido de novo.");
+  }
+
+  const { consultarOrdemPagarme, criarOrdemBoleto, extrairBoleto } =
+    await import("@/lib/pagarme.server");
+  if (p.external_order_id) {
+    const ordem = await consultarOrdemPagarme(p.external_order_id);
+    const existente = extrairBoleto(ordem);
+    if (ordem.status === "pending" && existente) return { ordemId: ordem.id, ...existente };
+  }
+
+  // Vencimento: 3 dias corridos, fim do dia no horário de Brasília
+  const vencimento = new Date(Date.now() + 3 * 86400000);
+  vencimento.setUTCHours(23 + 3, 59, 0, 0);
+  return criarOrdemBoleto(supabaseAdmin, {
+    pedidoId: p.id,
+    codigo: p.codigo,
+    planoNome: p.plano_nome,
+    valorCentavos: p.valor_total,
+    compradorNome: p.comprador_nome,
+    compradorEmail: p.comprador_email ?? emailUsuario ?? "",
+    compradorDocumento: p.comprador_documento,
+    compradorTipo: p.comprador_tipo === "cnpj" ? "cnpj" : "cpf",
+    compradorTelefone: perfil.telefone,
+    expiracaoSegundos: 0,
+    endereco,
+    vencimento,
+  });
+}
+
+export const obterBoletoPedido = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) =>
+    z.object({ token: tokenSchema, pedidoId: z.string().uuid() }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin, user } = await usuarioLogado(data.token);
+    const config = await carregarConfig(supabaseAdmin);
+    if (config.gateway !== "pagarme") throw new Error("O pagamento online não está ativo.");
+    return boletoDoPedido(supabaseAdmin, data.pedidoId, user.id, user.email ?? null);
   });
 
 /** Pix do pedido no Pagar.me: reaproveita a ordem já criada ou gera uma nova. */
