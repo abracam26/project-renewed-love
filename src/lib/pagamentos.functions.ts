@@ -103,10 +103,12 @@ async function carregarConfig(supabaseAdmin: SupabaseAdmin) {
 /** A chave secreta do Pagar.me fica só no servidor (variável de ambiente). */
 function statusChaveSecreta() {
   const chave = process.env["PAGARME_SECRET_KEY"]?.trim() ?? "";
-  if (!chave) return { configurada: false, modo: null };
+  if (!chave) return { configurada: false, modo: null, final: null };
   return {
     configurada: true,
     modo: chave.startsWith("sk_test_") ? ("teste" as const) : ("producao" as const),
+    // Só os 4 últimos caracteres: confirma qual chave está no servidor sem expô-la
+    final: chave.slice(-4),
   };
 }
 
@@ -648,6 +650,7 @@ export const obterConfigPagamento = createServerFn({ method: "POST" })
       pagarme: {
         chaveSecretaConfigurada: secreta.configurada,
         modoChaveSecreta: secreta.modo,
+        finalChaveSecreta: secreta.final,
         modoChavePublica: pub ? (pub.startsWith("pk_test_") ? "teste" : "producao") : null,
       },
     };
