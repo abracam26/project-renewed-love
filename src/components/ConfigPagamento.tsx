@@ -353,6 +353,11 @@ export function ConfigPagamento({ token }: { token: string }) {
             ) : (
               <strong className="text-muted-foreground">não configurada</strong>
             )}
+            {pagarme.chaveSecretaConfigurada && pagarme.finalChaveSecreta && (
+              <span className="font-mono text-muted-foreground">
+                · termina em …{pagarme.finalChaveSecreta}
+              </span>
+            )}
           </p>
           <p className="mt-1 text-[11px] text-muted-foreground">
             A chave secreta nunca é digitada aqui: ela fica guardada no servidor como variável
